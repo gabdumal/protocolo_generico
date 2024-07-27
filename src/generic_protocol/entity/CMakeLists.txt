@@ -1,12 +1,9 @@
-# Project
-add_library(generic_protocol)
-
 # Sources
 target_sources(generic_protocol
     PUBLIC
-        generic_protocol.hpp
+        entity.hpp
     PRIVATE
-        generic_protocol.cpp
+        entity.cpp
 )
 
 # Include self
@@ -14,6 +11,3 @@ target_include_directories(generic_protocol
     PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}
 )
-
-# Directories
-add_subdirectory(entity)
