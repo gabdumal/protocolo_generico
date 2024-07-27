@@ -1,0 +1,1 @@
+void generic_protocol();
