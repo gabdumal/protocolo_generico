@@ -1,8 +1,9 @@
 #ifndef _GENERIC_PROTOCOL_HPP
 #define _GENERIC_PROTOCOL_HPP
 
-#include <entity.hpp>
 #include <message.hpp>
+#include <entity.hpp>
+#include <network.hpp>
 #include <uuid.h>
 
 class GenericProtocol
@@ -20,7 +21,7 @@ public:
 
     /* Static methods */
     static Entity createEntity(string name);
-    static void sendMessage(Entity source, Entity target, string messageContent);
+    static void sendMessage(Entity source, Entity target, string messageContent, Network network);
 };
 
 #endif // _GENERIC_PROTOCOL_HPP

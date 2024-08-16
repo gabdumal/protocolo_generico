@@ -25,3 +25,4 @@ target_link_libraries(generic_protocol
 # Directories
 add_subdirectory(entity)
 add_subdirectory(message)
+add_subdirectory(network)

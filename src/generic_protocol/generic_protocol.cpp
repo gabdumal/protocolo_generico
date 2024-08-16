@@ -25,11 +25,15 @@ void GenericProtocol::run()
     cout << "01. Generic protocol" << endl
          << endl;
 
+    cout << "Creating network" << endl;
+    Network network = Network("Zirconia");
+
+    cout << "Creating entities" << endl;
     Entity entityA = GenericProtocol::createEntity("Aroeira");
     Entity entityB = GenericProtocol::createEntity("Baoba");
     cout << endl;
 
-    sendMessage(entityA, entityB, "Hello, Baoba!");
+    sendMessage(entityA, entityB, "Hello, Baoba!", network);
     cout << endl;
 }
 
@@ -42,7 +46,7 @@ Entity GenericProtocol::createEntity(string name)
     return entity;
 }
 
-void GenericProtocol::sendMessage(Entity source, Entity target, string messageContent)
+void GenericProtocol::sendMessage(Entity source, Entity target, string messageContent, Network network)
 {
     cout << "Creating message " << endl;
     Message message = Message(uuidGenerator, source.getId(), target.getId(), messageContent);
@@ -60,7 +64,16 @@ void GenericProtocol::sendMessage(Entity source, Entity target, string messageCo
             cout << TAB << TAB << message << endl;
         });
 
-    source.sendMessage(message);
+    cout << TAB << "Network: " << network.getName() << endl;
+    bool couldSend = network.sendMessage(message);
+    if (couldSend)
+    {
+        cout << TAB << "Message sent" << endl;
+    }
+    else
+    {
+        cout << TAB << "Message not sent" << endl;
+    }
 
     cout << endl;
 }

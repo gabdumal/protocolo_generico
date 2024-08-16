@@ -26,7 +26,6 @@ public:
     void setName(string name);
 
     /* Methods */
-    void sendMessage(Message message);
     void receiveMessage(Message message);
 };
 

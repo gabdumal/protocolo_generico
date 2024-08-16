@@ -1,4 +1,5 @@
 #include <entity.hpp>
+#include <iostream>
 
 using namespace std;
 
@@ -32,10 +33,6 @@ void Entity::setName(string name)
 }
 
 /* Methods */
-
-void Entity::sendMessage(Message message)
-{
-}
 
 void Entity::receiveMessage(Message message)
 {
