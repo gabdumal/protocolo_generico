@@ -34,6 +34,12 @@ void GenericProtocol::run()
     cout << endl;
 
     sendMessage(entityA, entityB, "Hello, Baoba!", network);
+
+    cout << "Connecting entities to the network" << endl;
+    network.connectEntity(entityA);
+    network.connectEntity(entityB);
+
+    sendMessage(entityA, entityB, "Hello, Baoba!", network);
     cout << endl;
 }
 
@@ -67,13 +73,9 @@ void GenericProtocol::sendMessage(Entity source, Entity target, string messageCo
     cout << TAB << "Network: " << network.getName() << endl;
     bool couldSend = network.sendMessage(message);
     if (couldSend)
-    {
-        cout << TAB << "Message sent" << endl;
-    }
+        cout << TAB << "Message sent!" << endl;
     else
-    {
-        cout << TAB << "Message not sent" << endl;
-    }
+        cout << TAB << "Message not sent!" << endl;
 
     cout << endl;
 }

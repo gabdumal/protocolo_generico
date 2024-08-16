@@ -36,4 +36,6 @@ void Entity::setName(string name)
 
 void Entity::receiveMessage(Message message)
 {
+    message.print([](string message)
+                  { cout << message << endl; });
 }

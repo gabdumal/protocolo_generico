@@ -23,18 +23,26 @@ string Network::getName()
 
 bool Network::connectEntity(Entity entity)
 {
-    cout << "Adding entity " << entity.getName() << " [" << entity.getId() << "]" << endl;
     entities.insert(pair<uuids::uuid, Entity>(entity.getId(), entity));
     return true;
 }
 
 void Network::disconnectEntity(Entity entity)
 {
-    cout << "Removing entity " << entity.getName() << " [" << entity.getId() << "]" << endl;
     entities.erase(entity.getId());
 }
 
 bool Network::sendMessage(Message message)
 {
-    return false;
+    auto targetEntity = entities.find(message.getTargetEntityId());
+    if (targetEntity != entities.end())
+    {
+        targetEntity->second.receiveMessage(message);
+        return true;
+    }
+    else
+    {
+        cout << "ERROR: Target entity is not connected to the network " << this->getName() << "!" << endl;
+        return false;
+    }
 }
