@@ -1,5 +1,5 @@
-#ifndef _MESSAGE_H
-#define _MESSAGE_H
+#ifndef _MESSAGE_HPP
+#define _MESSAGE_HPP
 
 #include <uuid.h>
 #include <string>
@@ -9,25 +9,28 @@ using namespace std;
 class Message
 {
 private:
-    // uuids::uuid origin;
-    // uuids::uuid target;
     uuids::uuid id;
+    uuids::uuid sourceEntityId;
+    uuids::uuid targetEntityId;
     string content;
 
 public:
     /* Construction */
     Message(
-        // uuids::uuid origin, uuids::uuid target,
-        uuids::uuid id,
+        uuids::uuid_random_generator *uuidGenerator,
+        uuids::uuid sourceEntityId,
+        uuids::uuid targetEntityId,
         string content);
     ~Message();
 
     /* Getters */
     uuids::uuid getId();
+    uuids::uuid getSourceEntityId();
+    uuids::uuid getTargetEntityId();
     string getContent();
 
     /* Methods */
-    void print();
+    void print(std::function<void(std::string)> printMessage);
 };
 
-#endif // _MESSAGE_H
+#endif // _MESSAGE_HPP

@@ -1,5 +1,5 @@
-#ifndef _GENERIC_PROTOCOL_H
-#define _GENERIC_PROTOCOL_H
+#ifndef _GENERIC_PROTOCOL_HPP
+#define _GENERIC_PROTOCOL_HPP
 
 #include <entity.hpp>
 #include <message.hpp>
@@ -20,7 +20,7 @@ public:
 
     /* Static methods */
     static Entity createEntity(string name);
-    static void sendMessage(Entity entity, Message message);
+    static void sendMessage(Entity source, Entity target, string messageContent);
 };
 
-#endif // _GENERIC_PROTOCOL_H
+#endif // _GENERIC_PROTOCOL_HPP

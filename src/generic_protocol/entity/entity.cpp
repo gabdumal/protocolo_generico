@@ -4,14 +4,21 @@ using namespace std;
 
 /* Construction */
 
-Entity::Entity(string name)
+Entity::Entity(uuids::uuid_random_generator *uuidGenerator, string name)
 {
+    this->id = (*uuidGenerator)();
     this->setName(name);
 }
 
 Entity::~Entity() {}
 
 /* Getters */
+
+uuids::uuid Entity::getId()
+{
+    return this->id;
+}
+
 string Entity::getName()
 {
     return this->name;
@@ -28,10 +35,8 @@ void Entity::setName(string name)
 
 void Entity::sendMessage(Message message)
 {
-    message.print();
 }
 
 void Entity::receiveMessage(Message message)
 {
-    message.print();
 }

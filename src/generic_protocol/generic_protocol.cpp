@@ -1,5 +1,6 @@
 #include <generic_protocol.hpp>
 #include <iostream>
+#include "constants.hpp"
 
 using namespace std;
 
@@ -28,10 +29,7 @@ void GenericProtocol::run()
     Entity entityB = GenericProtocol::createEntity("Baoba");
     cout << endl;
 
-    uuids::uuid const messageId = (*uuidGenerator)();
-    string content = "Banana?\nMaça?";
-    Message message = Message(messageId, content);
-    sendMessage(entityA, message);
+    sendMessage(entityA, entityB, "Hello, Baoba!");
     cout << endl;
 }
 
@@ -40,14 +38,29 @@ void GenericProtocol::run()
 Entity GenericProtocol::createEntity(string name)
 {
     cout << "Creating entity " << name << endl;
-    Entity entity = Entity(name);
+    Entity entity = Entity(uuidGenerator, name);
     return entity;
 }
 
-void GenericProtocol::sendMessage(Entity entity, Message message)
+void GenericProtocol::sendMessage(Entity source, Entity target, string messageContent)
 {
-    cout << "Sending message" << endl;
-    cout << "Origin: " << entity.getName() << endl;
-    entity.sendMessage(message);
+    cout << "Creating message " << endl;
+    Message message = Message(uuidGenerator, source.getId(), target.getId(), messageContent);
+
+    cout << "Sending message" << " [" << message.getId() << "]" << endl;
+
+    cout << TAB << "Source entity: " << source.getName() << " [" << source.getId() << "]" << endl;
+
+    cout << TAB << "Target entity: " << target.getName() << " [" << target.getId() << "]" << endl;
+
+    cout << TAB << "Message:" << endl;
+    message.print(
+        [](string message)
+        {
+            cout << TAB << TAB << message << endl;
+        });
+
+    source.sendMessage(message);
+
     cout << endl;
 }

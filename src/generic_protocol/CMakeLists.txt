@@ -18,6 +18,7 @@ target_include_directories(generic_protocol
 # Linking libraries
 target_link_libraries(generic_protocol
     PRIVATE
+        constants
         uuid
 )
 

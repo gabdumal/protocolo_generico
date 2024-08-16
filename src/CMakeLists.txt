@@ -17,4 +17,5 @@ target_link_libraries(networks_project
 )
 
 # Directories
+add_subdirectory(constants)
 add_subdirectory(generic_protocol)

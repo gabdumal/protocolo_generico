@@ -1,7 +1,8 @@
-#ifndef _ENTITY_H
-#define _ENTITY_H
+#ifndef _ENTITY_HPP
+#define _ENTITY_HPP
 
 #include <message.hpp>
+#include <uuid.h>
 #include <string>
 
 using namespace std;
@@ -9,14 +10,16 @@ using namespace std;
 class Entity
 {
 private:
+    uuids::uuid id;
     string name;
 
 public:
     /* Construction */
-    Entity(string name);
+    Entity(uuids::uuid_random_generator *uuidGenerator, string name);
     ~Entity();
 
     /* Getters */
+    uuids::uuid getId();
     string getName();
 
     /* Setters */
@@ -27,4 +30,4 @@ public:
     void receiveMessage(Message message);
 };
 
-#endif // _ENTITY_H
+#endif // _ENTITY_HPP
