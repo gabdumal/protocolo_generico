@@ -1,6 +1,7 @@
 #ifndef _ENTITY_H
 #define _ENTITY_H
 
+#include <message.hpp>
 #include <string>
 
 using namespace std;
@@ -11,18 +12,19 @@ private:
     string name;
 
 public:
-    // Construction
+    /* Construction */
     Entity(string name);
     ~Entity();
 
-    // Getters
+    /* Getters */
     string getName();
 
-    // Setters
+    /* Setters */
     void setName(string name);
 
-    // Other methods
-    void sendMessage(string Message);
+    /* Methods */
+    void sendMessage(Message message);
+    void receiveMessage(Message message);
 };
 
 #endif // _ENTITY_H

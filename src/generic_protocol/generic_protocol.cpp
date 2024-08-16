@@ -1,8 +1,23 @@
-#include "entity.hpp"
-#include "generic_protocol.hpp"
+#include <generic_protocol.hpp>
 #include <iostream>
 
 using namespace std;
+
+// Define the static UUID Generator
+uuids::uuid_random_generator *GenericProtocol::uuidGenerator = nullptr;
+
+/* Construction*/
+
+GenericProtocol::GenericProtocol(uuids::uuid_random_generator *uuidGenerator)
+{
+    this->uuidGenerator = uuidGenerator;
+}
+
+GenericProtocol::~GenericProtocol()
+{
+}
+
+/* Methods */
 
 void GenericProtocol::run()
 {
@@ -13,9 +28,14 @@ void GenericProtocol::run()
     Entity entityB = GenericProtocol::createEntity("Baoba");
     cout << endl;
 
-    sendMessage(entityA, "Banana?\nMaça?");
+    uuids::uuid const messageId = (*uuidGenerator)();
+    string content = "Banana?\nMaça?";
+    Message message = Message(messageId, content);
+    sendMessage(entityA, message);
     cout << endl;
 }
+
+/* Static methods */
 
 Entity GenericProtocol::createEntity(string name)
 {
@@ -24,12 +44,10 @@ Entity GenericProtocol::createEntity(string name)
     return entity;
 }
 
-void GenericProtocol::sendMessage(Entity entity, string message)
+void GenericProtocol::sendMessage(Entity entity, Message message)
 {
     cout << "Sending message" << endl;
     cout << "Origin: " << entity.getName() << endl;
-    cout << "=== BEGIN ===" << endl;
     entity.sendMessage(message);
-    cout << "=== END ===" << endl
-         << endl;
+    cout << endl;
 }

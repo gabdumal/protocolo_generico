@@ -1,9 +1,8 @@
-#include "entity.hpp"
-#include <iostream>
+#include <entity.hpp>
 
 using namespace std;
 
-// Construction
+/* Construction */
 
 Entity::Entity(string name)
 {
@@ -12,23 +11,27 @@ Entity::Entity(string name)
 
 Entity::~Entity() {}
 
-// Getters
-
+/* Getters */
 string Entity::getName()
 {
     return this->name;
 }
 
-// Setters
+/* Setters */
 
 void Entity::setName(string name)
 {
     this->name = name;
 }
 
-// Other methods
+/* Methods */
 
-void Entity::sendMessage(string message)
+void Entity::sendMessage(Message message)
 {
-    cout << message << endl;
+    message.print();
+}
+
+void Entity::receiveMessage(Message message)
+{
+    message.print();
 }

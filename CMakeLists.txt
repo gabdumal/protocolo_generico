@@ -1,13 +1,13 @@
 # Version
 cmake_minimum_required(VERSION 3.12...3.28)
 
-if(${CMAKE_VERSION} VERSION_LESS 3.12)
+if (${CMAKE_VERSION} VERSION_LESS 3.12)
     cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
-endif()
+endif ()
 
 # Project
 project(dcc042
-    LANGUAGES CXX
+        LANGUAGES CXX
 )
 
 # Environment
@@ -17,3 +17,4 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Directories
 add_subdirectory(src)
+add_subdirectory(external)

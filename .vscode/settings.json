@@ -1,4 +1,22 @@
 {
+    "C_Cpp.default.cppStandard": "c++23",
+    "C_Cpp.default.cStandard": "c23",
+    "C_Cpp.default.intelliSenseMode": "linux-gcc-x64",
+  
+    "cmake.configureOnOpen": true,
+    "cmake.pinnedCommands": [
+      "workbench.action.tasks.configureTaskRunner",
+      "workbench.action.tasks.runTask"
+    ],
+    "cmake.showOptionsMovedNotification": false,
+
+    "editor.detectIndentation": false,
+    "editor.formatOnSave": true,
+    "editor.inlineSuggest.enabled": true,
+    "editor.semanticHighlighting.enabled": true,
+    "editor.tabSize": 4,
+    "editor.wordWrap": "bounded",
+
     "files.associations": {
         "*.css": "css",
         "string": "cpp",
@@ -51,6 +69,11 @@
         "streambuf": "cpp",
         "text_encoding": "cpp",
         "typeinfo": "cpp",
-        "variant": "cpp"
-    }
+        "variant": "cpp",
+        "chrono": "cpp",
+        "cstring": "cpp",
+        "ratio": "cpp",
+        "iomanip": "cpp",
+        "sstream": "cpp"
+    },
 }
