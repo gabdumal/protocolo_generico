@@ -5,7 +5,10 @@
 #include <entity.hpp>
 #include <message.hpp>
 #include <string>
-#include <map>
+#include <unordered_map>
+#include <queue>
+#include <thread>
+#include <mutex>
 
 using namespace std;
 
@@ -13,7 +16,13 @@ class Network
 {
 private:
     string name;
-    map<uuids::uuid, Entity> entities;
+    unordered_map<uuids::uuid, Entity> entities;
+    queue<Message> messages;
+    mutex messagesMutex;
+    thread *networkThread;
+
+    bool processMessage(Message message);
+    bool sendMessage(Message message, Entity targetEntity);
 
 public:
     /* Construction */
@@ -26,7 +35,7 @@ public:
     /* Methods */
     bool connectEntity(Entity entity);
     void disconnectEntity(Entity entity);
-    bool sendMessage(Message message);
+    bool receiveMessage(Message message);
 };
 
 #endif // _NETWORK_HPP

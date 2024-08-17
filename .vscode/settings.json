@@ -75,6 +75,11 @@
         "ratio": "cpp",
         "iomanip": "cpp",
         "sstream": "cpp",
-        "list": "cpp"
+        "list": "cpp",
+        "semaphore": "cpp",
+        "condition_variable": "cpp"
     },
+    "cSpell.words": [
+        "Zircônia"
+    ],
 }

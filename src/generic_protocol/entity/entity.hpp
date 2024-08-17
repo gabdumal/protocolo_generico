@@ -3,7 +3,10 @@
 
 #include <message.hpp>
 #include <uuid.h>
+#include <constants.hpp>
+#include <console_colors.hpp>
 #include <string>
+#include <iostream>
 
 using namespace std;
 
@@ -26,7 +29,7 @@ public:
     void setName(string name);
 
     /* Methods */
-    void receiveMessage(Message message);
+    bool receiveMessage(Message message);
 };
 
 #endif // _ENTITY_HPP

@@ -1,6 +1,6 @@
 #include <generic_protocol.hpp>
 #include <iostream>
-#include "constants.hpp"
+#include <constants.hpp>
 
 using namespace std;
 
@@ -22,60 +22,77 @@ GenericProtocol::~GenericProtocol()
 
 void GenericProtocol::run()
 {
-    cout << "01. Generic protocol" << endl
-         << endl;
+    stringstream outputStream;
 
-    cout << "Creating network" << endl;
-    Network network = Network("Zirconia");
+    outputStream << "01. Generic protocol" << endl
+                 << endl;
 
-    cout << "Creating entities" << endl;
-    Entity entityA = GenericProtocol::createEntity("Aroeira");
-    Entity entityB = GenericProtocol::createEntity("Baoba");
-    cout << endl;
+    outputStream << "Creating network" << endl;
+    cout << outputStream.str();
+    outputStream.str("");
+    Network network = Network("Zircônia");
+    outputStream << TAB << "Network: " << network.getName() << endl
+                 << endl;
+    cout << outputStream.str();
+    outputStream.str("");
 
-    sendMessage(entityA, entityB, "Hello, Baoba!", network);
+    outputStream << "Creating entities" << endl;
+    outputStream << TAB;
+    Entity entityA = GenericProtocol::createEntity("Aroeira", outputStream);
+    outputStream << TAB;
+    Entity entityB = GenericProtocol::createEntity("Baobá", outputStream);
+    outputStream << endl;
+    cout << outputStream.str();
+    outputStream.str("");
 
-    cout << "Connecting entities to the network" << endl;
-    network.connectEntity(entityA);
-    network.connectEntity(entityB);
+    sendMessage(entityA, entityB, "Hello, Baobá!", network, outputStream);
 
-    sendMessage(entityA, entityB, "Hello, Baoba!", network);
-    cout << endl;
+    outputStream << "Connecting entities to the network " << network.getName() << endl;
+    bool hasBeenConnected = network.connectEntity(entityA);
+    outputStream << TAB << "Entity " << entityA.getName() << " [" << entityA.getId() << "] connected to network: " << (hasBeenConnected ? "TRUE" : "FALSE") << endl;
+    hasBeenConnected = network.connectEntity(entityB);
+    outputStream << TAB << "Entity " << entityB.getName() << " [" << entityB.getId() << "] connected to network: " << (hasBeenConnected ? "TRUE" : "FALSE") << endl;
+    outputStream << endl;
+    cout << outputStream.str();
+    outputStream.str("");
+
+    sendMessage(entityA, entityB, "Hello, Baobá!", network, outputStream);
 }
 
 /* Static methods */
 
-Entity GenericProtocol::createEntity(string name)
+Entity GenericProtocol::createEntity(string name, stringstream &outputStream)
 {
-    cout << "Creating entity " << name << endl;
+    outputStream << "Creating entity " << name << endl;
     Entity entity = Entity(uuidGenerator, name);
     return entity;
 }
 
-void GenericProtocol::sendMessage(Entity source, Entity target, string messageContent, Network network)
+void GenericProtocol::sendMessage(Entity source, Entity target, string messageContent, Network &network, stringstream &outputStream)
 {
-    cout << "Creating message " << endl;
+    outputStream << "Sending message" << endl;
+
     Message message = Message(uuidGenerator, source.getId(), target.getId(), messageContent);
 
-    cout << "Sending message" << " [" << message.getId() << "]" << endl;
+    outputStream << TAB << "Source entity: " << source.getName() << " [" << source.getId() << "]" << endl;
 
-    cout << TAB << "Source entity: " << source.getName() << " [" << source.getId() << "]" << endl;
+    outputStream << TAB << "Target entity: " << target.getName() << " [" << target.getId() << "]" << endl;
 
-    cout << TAB << "Target entity: " << target.getName() << " [" << target.getId() << "]" << endl;
-
-    cout << TAB << "Message:" << endl;
+    outputStream << TAB << "Message:" << endl;
     message.print(
-        [](string message)
+        [&outputStream](string message)
         {
-            cout << TAB << TAB << message << endl;
+            outputStream << TAB << TAB << message << endl;
         });
 
-    cout << TAB << "Network: " << network.getName() << endl;
-    bool couldSend = network.sendMessage(message);
-    if (couldSend)
-        cout << TAB << "Message sent!" << endl;
+    outputStream << TAB << "Network: " << network.getName() << endl;
+    bool hasBeenProcessed = network.receiveMessage(message);
+    if (hasBeenProcessed)
+        outputStream << TAB << "Message sent through network!" << endl;
     else
-        cout << TAB << "Message not sent!" << endl;
+        outputStream << TAB << "Message not sent through network!" << endl;
 
-    cout << endl;
+    outputStream << endl;
+    cout << outputStream.str();
+    outputStream.str("");
 }

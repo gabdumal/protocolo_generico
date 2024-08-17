@@ -12,7 +12,9 @@ target_include_directories(networks_project
 # Linking libraries
 target_link_libraries(networks_project
     PRIVATE
+        console_colors
         uuid
+        constants
         generic_protocol
 )
 

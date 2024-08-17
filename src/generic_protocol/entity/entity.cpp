@@ -1,5 +1,4 @@
 #include <entity.hpp>
-#include <iostream>
 
 using namespace std;
 
@@ -34,8 +33,13 @@ void Entity::setName(string name)
 
 /* Methods */
 
-void Entity::receiveMessage(Message message)
+bool Entity::receiveMessage(Message message)
 {
-    message.print([](string message)
-                  { cout << message << endl; });
+    // message.print([](string message)
+    //               { cout << message << endl; });
+    setColor(TextColor::GREEN);
+    cout << "Entity [" << this->getName() << "] " << endl;
+    cout << TAB << "Message received: [" << message.getId() << "]" << endl;
+    resetColor();
+    return true;
 }
