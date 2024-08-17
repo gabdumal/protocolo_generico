@@ -56,7 +56,10 @@ void GenericProtocol::run()
     cout << outputStream.str();
     outputStream.str("");
 
-    sendMessage(entityA, entityB, "Hello, Baobá!", network, outputStream);
+    for (size_t i = 0; i < 32; i++)
+    {
+        sendMessage(entityA, entityB, "Hello, Baobá! (" + to_string(i) + ")", network, outputStream);
+    }
 }
 
 /* Static methods */

@@ -1,6 +1,6 @@
-#ifndef CONSTANTS_HPP
-#define CONSTANTS_HPP
+#ifndef _CONSTANTS_HPP
+#define _CONSTANTS_HPP
 
 constexpr char TAB[] = "    ";
 
-#endif // CONSTANTS_HPP
+#endif // _CONSTANTS_HPP

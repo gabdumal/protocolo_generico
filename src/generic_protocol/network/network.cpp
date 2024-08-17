@@ -1,5 +1,6 @@
 #include <network.hpp>
 #include <console_colors.hpp>
+#include <generic_protocol_constants.hpp>
 #include <iostream>
 
 using namespace std;
@@ -57,6 +58,17 @@ void Network::disconnectEntity(Entity entity)
 
 bool Network::receiveMessage(Message message)
 {
+    // Simulate packet loss
+    if (rand() % 100 < PACKET_LOSS_PROBABILITY * 100)
+    {
+        stringstream outputStream;
+        setColor(outputStream, TextColor::YELLOW);
+        outputStream << "Message " << "[" << message.getId() << "] " << "has been lost in the network " << this->getName() << "!" << endl;
+        resetColor(outputStream);
+        cout << outputStream.str();
+        return false;
+    }
+
     try
     {
         lock_guard<mutex> lock(messagesMutex);
@@ -81,11 +93,10 @@ bool Network::processMessage(Message message)
     else
     {
         stringstream outputStream;
+        setColor(outputStream, TextColor::RED);
         outputStream << "Target entity " << "[" << message.getTargetEntityId() << "] " << "is not connected to the network " << this->getName() << "!" << endl;
-
-        setColor(TextColor::RED);
+        resetColor(outputStream);
         cerr << outputStream.str();
-        resetColor();
         return false;
     }
 }

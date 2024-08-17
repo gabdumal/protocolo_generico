@@ -6,6 +6,13 @@
 
 using namespace std;
 
+enum Code
+{
+    ACK,
+    NACK,
+    DATA
+};
+
 class Message
 {
 private:

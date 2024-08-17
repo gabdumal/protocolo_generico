@@ -1,5 +1,5 @@
-#ifndef CONSOLE_COLORS_HPP
-#define CONSOLE_COLORS_HPP
+#ifndef _CONSOLE_COLORS_HPP
+#define _CONSOLE_COLORS_HPP
 
 #include <iostream>
 
@@ -17,7 +17,9 @@ enum TextColor
     WHITE = 37
 };
 
-void setColor(TextColor textColor);
-void resetColor();
+void setColor(ostream &outputStream, TextColor textColor = TextColor::BLACK, TextColor backgroundColor = TextColor::BLACK);
 
-#endif // CONSOLE_COLORS_HPP
+void resetColor(
+    ostream &outputStream);
+
+#endif // _CONSOLE_COLORS_HPP
