@@ -53,12 +53,11 @@ string Network::getName() const
 
 /* Methods */
 
-bool Network::connectEntity(Entity &entity)
+void Network::connectEntity(Entity &entity)
 {
     lock_guard<mutex> lock(this->entitiesMutex);
     this->entities[entity.getId()] = &entity;
     this->messageProcessedCV.notify_all();
-    return true;
 }
 
 void Network::disconnectEntity(uuids ::uuid entityId)
@@ -86,8 +85,7 @@ bool Network::receiveMessage(Message message)
         lock_guard<mutex> lock(this->messagesMutex);
         this->messages.push(message);
         this->processingMessagesCount++;
-        cout << "Message received: " << message.getContent() << endl; // Debugging output
-        this->messageProcessedCV.notify_one();                        // Notify the network thread
+        this->messageProcessedCV.notify_one(); // Notify the network thread
     }
     catch (const exception &e)
     {
@@ -107,7 +105,6 @@ void Network::processMessage(Message message)
     if (rand() % 100 < CORRUPTION_PROBABILITY * 100)
         message.setCorrupted(true);
 
-    cout << "Processing message: " << message.getContent() << endl; // Debugging output
     this->sendMessage(message);
 
     // Brackets are used to limit the scope of the lock

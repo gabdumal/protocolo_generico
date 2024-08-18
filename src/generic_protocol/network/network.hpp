@@ -44,7 +44,7 @@ public:
     string getName() const;
 
     /* Methods */
-    bool connectEntity(Entity &entity);
+    void connectEntity(Entity &entity);
     void disconnectEntity(uuids::uuid entityId);
     bool receiveMessage(Message message);
 };

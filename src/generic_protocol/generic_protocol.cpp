@@ -37,35 +37,56 @@ void GenericProtocol::run()
     outputStream.str("");
 
     outputStream << "Creating entities" << endl;
-    outputStream << TAB;
-    Entity entityA = GenericProtocol::createEntity("Aroeira", outputStream);
-    outputStream << TAB;
-    Entity entityB = GenericProtocol::createEntity("Baobá", outputStream);
+    Entity entityA = GenericProtocol::createEntity("Aroeira",
+                                                   [&outputStream](string message)
+                                                   {
+                                                       outputStream << TAB << message << endl;
+                                                   });
+    outputStream << endl;
+    Entity entityB = GenericProtocol::createEntity("Baobá", [&outputStream](string message)
+                                                   { outputStream << TAB << message << endl; });
     outputStream << endl;
     cout << outputStream.str();
     outputStream.str("");
 
     outputStream << "Connecting entities to the network " << network.getName() << endl;
-    bool hasBeenConnected = network.connectEntity(entityA);
-    outputStream << TAB << "Entity " << entityA.getName() << " [" << entityA.getId() << "] connected to network: " << (hasBeenConnected ? "TRUE" : "FALSE") << endl;
-    hasBeenConnected = network.connectEntity(entityB);
-    outputStream << TAB << "Entity " << entityB.getName() << " [" << entityB.getId() << "] connected to network: " << (hasBeenConnected ? "TRUE" : "FALSE") << endl;
+    network.connectEntity(entityA);
+    outputStream << TAB << "Entity " << entityA.getName() << " [" << entityA.getId() << "] connected to network" << endl;
+    network.connectEntity(entityB);
+    outputStream << TAB << "Entity " << entityB.getName() << " [" << entityB.getId() << "] connected to network" << endl;
     outputStream << endl;
     cout << outputStream.str();
     outputStream.str("");
 
-    for (size_t i = 0; i < 32; i++)
+    for (size_t i = 0; i < 4; i++)
     {
         sendMessage(entityA, entityB, "Hello, Baobá! (" + to_string(i) + ")", network, outputStream);
     }
+
+    chrono::milliseconds timeSpan(rand() % 10000);
+    this_thread::sleep_for(timeSpan);
+
+    outputStream << "Entities' storage" << endl;
+    outputStream << TAB << entityA.getName() << " [" << entityA.getId() << "]" << endl;
+    entityA.printStorage([&outputStream](string message)
+                         { outputStream << TAB << message << endl; });
+    outputStream << endl;
+    outputStream << TAB << entityB.getName() << " [" << entityB.getId() << "]" << endl;
+    entityB.printStorage([&outputStream](string message)
+                         { outputStream << TAB << message << endl; });
+    cout << outputStream.str();
 }
 
 /* Static methods */
 
-Entity GenericProtocol::createEntity(string name, ostringstream &outputStream)
+Entity GenericProtocol::createEntity(string name, function<void(string)> printMessage)
 {
-    outputStream << "Creating entity " << name << endl;
     Entity entity = Entity(uuidGenerator, name);
+    printMessage(entity.getName() + " [" + to_string(entity.getId()) + "]");
+    entity.printStorage({[&printMessage](string message)
+                         {
+                             printMessage(TAB + message);
+                         }});
     return entity;
 }
 

@@ -20,7 +20,7 @@ public:
     void run();
 
     /* Static methods */
-    static Entity createEntity(string name, ostringstream &outputStream);
+    static Entity createEntity(string name, function<void(string)> printMessage);
     static void sendMessage(Entity &source, Entity &target, string messageContent, Network &network, ostringstream &outputStream);
 };
 

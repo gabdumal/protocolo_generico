@@ -8,18 +8,19 @@ Entity::Entity(uuids::uuid_random_generator *uuidGenerator, string name)
 {
     this->id = (*uuidGenerator)();
     this->setName(name);
+    this->storage = "";
 }
 
 Entity::~Entity() {}
 
 /* Getters */
 
-uuids::uuid Entity::getId()
+uuids::uuid Entity::getId() const
 {
     return this->id;
 }
 
-string Entity::getName()
+string Entity::getName() const
 {
     return this->name;
 }
@@ -35,12 +36,17 @@ void Entity::setName(string name)
 
 void Entity::receiveMessage(const Message &message)
 {
-    // TODO: Add to queue
-    ostringstream outputStream;
-    setColor(outputStream, TextColor::CYAN);
-    outputStream << "Entity [" << this->getName() << "] " << endl;
-    outputStream << TAB << "Message received: [" << message.getId() << "]" << endl;
-    outputStream << TAB << "Corrupted: " << (message.isCorrupted() ? "TRUE" : "FALSE") << endl;
-    resetColor(outputStream);
-    cout << outputStream.str();
+    this->storage += message.getContent() + "\n";
+}
+
+void Entity::printStorage(function<void(string)> printMessage) const
+{
+    printMessage("=== BEGIN ===");
+    std::istringstream contentStream(this->storage);
+    std::string line;
+    while (std::getline(contentStream, line))
+    {
+        printMessage(line);
+    }
+    printMessage("==== END ====");
 }

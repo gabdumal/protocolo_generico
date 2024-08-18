@@ -58,6 +58,11 @@ void Message::print(std::function<void(std::string)> printMessage) const
     printMessage("Source entity ID: " + uuids::to_string(this->getSourceEntityId()));
     printMessage("Target entity ID: " + uuids::to_string(this->getTargetEntityId()));
     printMessage("=== BEGIN ===");
-    printMessage(this->getContent());
-    printMessage("=== END ===");
+    std::istringstream contentStream(this->getContent());
+    std::string line;
+    while (std::getline(contentStream, line))
+    {
+        printMessage(line);
+    }
+    printMessage("==== END ====");
 }

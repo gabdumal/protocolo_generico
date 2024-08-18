@@ -42,7 +42,7 @@ public:
     void setCorrupted(bool isCorrupted);
 
     /* Methods */
-    void print(std::function<void(std::string)> printMessage) const;
+    void print(function<void(string)> printMessage) const;
 };
 
 #endif // _MESSAGE_HPP

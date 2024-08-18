@@ -6,7 +6,6 @@
 #include <constants.hpp>
 #include <console_colors.hpp>
 #include <string>
-#include <iostream>
 
 using namespace std;
 
@@ -15,6 +14,7 @@ class Entity
 private:
     uuids::uuid id;
     string name;
+    string storage;
 
 public:
     /* Construction */
@@ -22,14 +22,15 @@ public:
     ~Entity();
 
     /* Getters */
-    uuids::uuid getId();
-    string getName();
+    uuids::uuid getId() const;
+    string getName() const;
 
     /* Setters */
     void setName(string name);
 
     /* Methods */
     void receiveMessage(const Message &message);
+    void printStorage(function<void(string)> printMessage) const;
 };
 
 #endif // _ENTITY_HPP
