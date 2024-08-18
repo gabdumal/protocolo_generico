@@ -1,8 +1,12 @@
 #ifndef _GENERIC_PROTOCOL_CONSTANTS_HPP
 #define _GENERIC_PROTOCOL_CONSTANTS_HPP
 
-constexpr float PACKET_LOSS_PROBABILITY = 0.25;
-constexpr float CORRUPTION_PROBABILITY = 0.35;
-constexpr int NETWORK_LATENCY = 1000;
+namespace GenericProtocolConstants
+{
+    constexpr float packetLossProbability = 0.25;
+    constexpr float packetCorruptionProbability = 0.35;
+    constexpr int networkLatency = 1000;
+    constexpr bool debugInformation = true;
+}
 
 #endif // _GENERIC_PROTOCOL_CONSTANTS_HPP

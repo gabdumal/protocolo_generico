@@ -1,6 +1,7 @@
 #include <generic_protocol.hpp>
 #include <constants.hpp>
 #include <iostream>
+#include <queue>
 
 using namespace std;
 
@@ -58,7 +59,19 @@ void GenericProtocol::run()
     cout << outputStream.str();
     outputStream.str("");
 
-    sendMessage(entityA, entityB, "Hello, Baobá!", Code::SYN, network, outputStream);
+    std::deque<string> contentsDequeue = {
+        "Hello, Baobá!",
+        "Fragment 1",
+        "Fragment 2",
+        "Fragment 3",
+        "Fragment 4",
+        "Fragment 5",
+        "Fragment 6"};
+
+    for (string content : contentsDequeue)
+    {
+        GenericProtocol::sendMessage(entityA, entityB, content, Code::DATA, network, outputStream);
+    }
 
     chrono::milliseconds timeSpan(rand() % 10000);
     this_thread::sleep_for(timeSpan);

@@ -3,6 +3,26 @@
 
 using namespace std;
 
+/* Auxiliary */
+string codeToString(Code code)
+{
+    switch (code)
+    {
+    case Code::SYN:
+        return "SYN";
+    case Code::FIN:
+        return "FIN";
+    case Code::ACK:
+        return "ACK";
+    case Code::NACK:
+        return "NACK";
+    case Code::DATA:
+        return "DATA";
+    default:
+        return "UNKNOWN";
+    }
+}
+
 /* Construction */
 
 Message::Message(uuids::uuid_random_generator *uuidGenerator, uuids::uuid sourceEntityId, uuids::uuid targetEntityId, string content, Code code)
@@ -63,6 +83,7 @@ void Message::print(std::function<void(std::string)> printMessage) const
     printMessage("ID: " + uuids::to_string(this->getId()));
     printMessage("Source entity ID: " + uuids::to_string(this->getSourceEntityId()));
     printMessage("Target entity ID: " + uuids::to_string(this->getTargetEntityId()));
+    printMessage("Code: " + codeToString(this->getCode()));
     printMessage("=== BEGIN ===");
     std::istringstream contentStream(this->getContent());
     std::string line;

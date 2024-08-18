@@ -1,4 +1,5 @@
 #include <entity.hpp>
+#include <generic_protocol_constants.hpp>
 
 using namespace std;
 
@@ -49,11 +50,18 @@ void Entity::setName(string name)
 
 optional<Message> Entity::receiveMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
 {
-    ostringstream outputStream;
-    setColor(outputStream, Color::CYAN);
-    outputStream << "Entity [" << this->id << "] received message from entity [" << message.getSourceEntityId() << "] with ID [" + to_string(message.getId()) + "] and code " << message.getCode() << " and content: " << message.getContent();
-    resetColor(outputStream);
-    cout << outputStream.str() << endl;
+    if (GenericProtocolConstants::debugInformation)
+    {
+        ostringstream outputStream;
+        setColor(outputStream, Color::CYAN);
+        outputStream << "Entity " << this->getName() << " [" << this->getId() << "]" << endl;
+        outputStream << TAB << "Received message" << endl;
+        outputStream << TAB << "Content: " << endl;
+        message.print([&outputStream](string line)
+                      { outputStream << TAB << TAB << line << endl; });
+        resetColor(outputStream);
+        cout << outputStream.str() << endl;
+    }
 
     switch (message.getCode())
     {

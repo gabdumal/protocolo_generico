@@ -71,13 +71,16 @@ void Network::disconnectEntity(uuids ::uuid entityId)
 bool Network::receiveMessage(Message message)
 {
     // Simulate packet loss
-    if (rand() % 100 < PACKET_LOSS_PROBABILITY * 100)
+    if (rand() % 100 < GenericProtocolConstants::packetLossProbability * 100)
     {
-        ostringstream outputStream;
-        setColor(outputStream, Color::YELLOW);
-        outputStream << "Message " << "[" << message.getId() << "] " << "has been lost in the network " << this->getName() << "!" << endl;
-        resetColor(outputStream);
-        cout << outputStream.str();
+        if (GenericProtocolConstants::debugInformation)
+        {
+            ostringstream outputStream;
+            setColor(outputStream, Color::YELLOW);
+            outputStream << "Message " << "[" << message.getId() << "] " << "has been lost in the network " << this->getName() << "!" << endl;
+            resetColor(outputStream);
+            cout << outputStream.str();
+        }
         return false;
     }
 
@@ -90,7 +93,11 @@ bool Network::receiveMessage(Message message)
     }
     catch (const exception &e)
     {
-        cerr << "Failed to receive message: " << e.what() << endl;
+        ostringstream outputStream;
+        setColor(outputStream, Color::RED);
+        outputStream << "Error while receiving message in the network " << this->getName() << ": " << e.what() << endl;
+        resetColor(outputStream);
+        cerr << outputStream.str();
         return false;
     }
     return true;
@@ -99,12 +106,19 @@ bool Network::receiveMessage(Message message)
 void Network::processMessage(Message message)
 {
     // Simulate network latency
-    chrono::milliseconds timeSpan(rand() % NETWORK_LATENCY);
+    chrono::milliseconds timeSpan(rand() % GenericProtocolConstants::networkLatency);
     this_thread::sleep_for(timeSpan);
 
     // Simulate message corruption
-    if (rand() % 100 < CORRUPTION_PROBABILITY * 100)
+    if (rand() % 100 < GenericProtocolConstants::packetCorruptionProbability * 100)
+    {
+        ostringstream outputStream;
+        setColor(outputStream, Color::YELLOW);
+        outputStream << "Message " << "[" << message.getId() << "] " << "has been corrupted in the network " << this->getName() << "!" << endl;
+        resetColor(outputStream);
+        cout << outputStream.str();
         message.setCorrupted(true);
+    }
 
     this->sendMessage(message);
 
@@ -141,6 +155,10 @@ void Network::sendMessage(Message message)
     }
     else
     {
-        cerr << "Target entity [" << message.getTargetEntityId() << "] is not connected to the network " << this->getName() << "!" << endl;
+        ostringstream outputStream;
+        setColor(outputStream, Color::RED);
+        outputStream << "Target entity [" << message.getTargetEntityId() << "] is not connected to the network " << this->getName() << "!" << endl;
+        resetColor(outputStream);
+        cerr << outputStream.str();
     }
 }
