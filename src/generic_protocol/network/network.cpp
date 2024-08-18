@@ -124,35 +124,54 @@ void Network::processMessage(Message message)
 void Network::sendMessage(Message message)
 {
     lock_guard<mutex> lock(this->entitiesMutex);
+
     auto targetEntityPair = this->entities.find(message.getTargetEntityId());
     if (targetEntityPair != entities.end())
     {
-        Entity *entity = targetEntityPair->second;
-        if (entity)
+        Entity *targetEntity = targetEntityPair->second;
+        if (targetEntity)
         {
-            bool canSendMessage = entity->sendMessage(message);
-            if (!canSendMessage)
+            auto sourceEntityPair = this->entities.find(message.getSourceEntityId());
+            if (sourceEntityPair != entities.end())
             {
-                if (GenericProtocolConstants::debugInformation)
+                Entity *sourceEntity = sourceEntityPair->second;
+                if (sourceEntity)
                 {
-                    this->printInformation("Target entity " + entity->getName() + " [" + to_string(entity->getId()) + "] cannot receive the message " + "[" + to_string(message.getId()) + "]!", cout, ConsoleColors::Color::RED);
+                    bool canSendMessage = sourceEntity->sendMessage(message);
+                    if (!canSendMessage)
+                    {
+                        if (GenericProtocolConstants::debugInformation)
+                        {
+                            this->printInformation("Source entity " + sourceEntity->getName() + " [" + to_string(sourceEntity->getId()) + "] cannot send the message " + "[" + to_string(message.getId()) + "]!", cout, ConsoleColors::Color::RED);
+                        }
+                    }
+                    else
+                    {
+                        if (GenericProtocolConstants::debugInformation)
+                        {
+                            this->printInformation("Message " + to_string(message.getId()) + " has been sent to the target entity " + targetEntity->getName() + " [" + to_string(targetEntity->getId()) + "]!", cout, ConsoleColors::Color::GREEN);
+                        }
+                        optional<Message> returnedMessage = targetEntity->receiveMessage(message, this->uuidGenerator);
+                        if (returnedMessage)
+                        {
+                            this->receiveMessage(returnedMessage.value());
+                        }
+                    }
+                }
+                else
+                {
+                    this->printInformation("Source entity [" + to_string(message.getSourceEntityId()) + "] has been disconnected from the network " + this->getName() + "!", cerr, ConsoleColors::Color::RED);
+                    this->disconnectEntity(message.getSourceEntityId());
                 }
             }
             else
             {
-                if (GenericProtocolConstants::debugInformation)
-                {
-                    this->printInformation("Message " + to_string(message.getId()) + " has been sent to the target entity " + entity->getName() + " [" + to_string(entity->getId()) + "]!", cout, ConsoleColors::Color::GREEN);
-                }
-                optional<Message> returnedMessage = entity->receiveMessage(message, this->uuidGenerator);
-                if (returnedMessage)
-                {
-                    this->receiveMessage(returnedMessage.value());
-                }
+                this->printInformation("Source entity [" + to_string(message.getSourceEntityId()) + "] is not connected to the network " + this->getName() + "!", cerr, ConsoleColors::Color::RED);
             }
         }
         else
         {
+            this->printInformation("Target entity [" + to_string(message.getTargetEntityId()) + "] has been disconnected from the network " + this->getName() + "!", cerr, ConsoleColors::Color::RED);
             this->disconnectEntity(message.getTargetEntityId());
         }
     }

@@ -84,6 +84,7 @@ void Message::print(std::function<void(std::string)> printMessage) const
     printMessage("Source entity ID: " + uuids::to_string(this->getSourceEntityId()));
     printMessage("Target entity ID: " + uuids::to_string(this->getTargetEntityId()));
     printMessage("Code: " + codeToString(this->getCode()));
+    printMessage("Corrupted: " + std::string(this->isCorrupted() ? "YES" : "NO"));
     printMessage("=== BEGIN ===");
     std::istringstream contentStream(this->getContent());
     std::string line;

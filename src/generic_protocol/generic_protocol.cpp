@@ -63,11 +63,11 @@ void GenericProtocol::run()
 
     std::deque<string> contentsDequeue = {
         "Hello, Baobá!",
-        "Fragment 1",
-        "Fragment 2",
-        "Fragment 3",
-        "Fragment 4",
-        "Fragment 5",
+        // "Fragment 1",
+        // "Fragment 2",
+        // "Fragment 3",
+        // "Fragment 4",
+        // "Fragment 5",
         "Fragment 6"};
 
     for (string content : contentsDequeue)

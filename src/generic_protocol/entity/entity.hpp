@@ -31,14 +31,16 @@ private:
     optional<uuids::uuid> lastUnacknowledgedMessageId;
 
     /* Methods */
+    void printInformation(string information, ostream &outputStream, ConsoleColors::Color color = ConsoleColors::Color::DEFAULT) const;
+    bool isConnectedTo(uuids::uuid entityId) const;
+    bool canReceiveDataFrom(uuids::uuid entityId) const;
     optional<Message> receiveSynMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
     optional<Message> receiveFinMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
     optional<Message> receiveAckMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
-    optional<Message> receiveAckSynMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
-    optional<Message> receiveAckAckSynMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
+    optional<Message> receiveAckSynMessage(const Message &message, uuids::uuid sentMessageId, uuids::uuid_random_generator *uuidGenerator);
+    optional<Message> receiveAckAckSynMessage(const Message &message, uuids::uuid sentMessageId, uuids::uuid_random_generator *uuidGenerator);
     optional<Message> receiveNackMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
     optional<Message> receiveDataMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
-    void printInformation(string information, ostream &outputStream, ConsoleColors::Color color = ConsoleColors::Color::DEFAULT) const;
 
 public:
     /* Construction */
@@ -57,8 +59,6 @@ public:
     bool sendMessage(Message &message);
     optional<Message> receiveMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
     void printStorage(function<void(string)> printMessage) const;
-    bool isConnectedTo(uuids::uuid entityId) const;
-    bool canReceiveDataFrom(uuids::uuid entityId) const;
 };
 
 #endif // _ENTITY_HPP
