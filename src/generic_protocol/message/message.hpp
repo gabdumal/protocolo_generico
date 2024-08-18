@@ -20,6 +20,7 @@ private:
     uuids::uuid sourceEntityId;
     uuids::uuid targetEntityId;
     string content;
+    bool corrupted;
 
 public:
     /* Construction */
@@ -35,6 +36,10 @@ public:
     uuids::uuid getSourceEntityId() const;
     uuids::uuid getTargetEntityId() const;
     string getContent() const;
+    bool isCorrupted() const;
+
+    /* Setters */
+    void setCorrupted(bool isCorrupted);
 
     /* Methods */
     void print(std::function<void(std::string)> printMessage) const;

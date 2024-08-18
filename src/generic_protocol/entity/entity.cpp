@@ -35,12 +35,11 @@ void Entity::setName(string name)
 
 bool Entity::receiveMessage(Message message)
 {
-    // message.print([](string message)
-    //               { cout << message << endl; });
     ostringstream outputStream;
-    setColor(outputStream, TextColor::GREEN);
+    setColor(outputStream, TextColor::CYAN);
     outputStream << "Entity [" << this->getName() << "] " << endl;
     outputStream << TAB << "Message received: [" << message.getId() << "]" << endl;
+    outputStream << TAB << "Corrupted: " << (message.isCorrupted() ? "TRUE" : "FALSE") << endl;
     resetColor(outputStream);
     cout << outputStream.str();
     return true;

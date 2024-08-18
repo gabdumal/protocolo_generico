@@ -11,6 +11,7 @@ Message::Message(uuids::uuid_random_generator *uuidGenerator, uuids::uuid source
     this->sourceEntityId = sourceEntityId;
     this->targetEntityId = targetEntityId;
     this->content = content;
+    this->corrupted = false;
 }
 
 Message::~Message() {}
@@ -35,6 +36,18 @@ uuids::uuid Message::getTargetEntityId() const
 string Message::getContent() const
 {
     return this->content;
+}
+
+bool Message::isCorrupted() const
+{
+    return this->corrupted;
+}
+
+/* Setters */
+
+void Message::setCorrupted(bool isCorrupted)
+{
+    this->corrupted = isCorrupted;
 }
 
 /* Methods */

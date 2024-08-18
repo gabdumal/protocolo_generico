@@ -103,6 +103,10 @@ bool Network::processMessage(Message &message)
                chrono::milliseconds timeSpan(rand() % NETWORK_LATENCY);
                this_thread::sleep_for(timeSpan);
 
+               // Simulate message corruption
+                if (rand() % 100 < CORRUPTION_PROBABILITY * 100)
+                     message.setCorrupted(true);
+
                auto targetEntity = entities.find(message.getTargetEntityId());
                if (targetEntity != entities.end())
                {
