@@ -60,7 +60,7 @@ void GenericProtocol::run()
 
     sendMessage(entityA, entityB, "Hello, Baobá!", Code::SYN, network, outputStream);
 
-    chrono::milliseconds timeSpan(rand() % 30000);
+    chrono::milliseconds timeSpan(rand() % 10000);
     this_thread::sleep_for(timeSpan);
 
     outputStream << "Entities' storage" << endl;

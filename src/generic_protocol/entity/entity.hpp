@@ -17,6 +17,7 @@ private:
     {
         uuids::uuid synMessageId;
         uuids::uuid synAckMessageId;
+        uuids::uuid synAckAckMessageId;
     };
 
     uuids::uuid id;
