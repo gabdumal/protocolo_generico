@@ -29,7 +29,7 @@ public:
     void setName(string name);
 
     /* Methods */
-    bool receiveMessage(Message message);
+    void receiveMessage(const Message &message);
 };
 
 #endif // _ENTITY_HPP

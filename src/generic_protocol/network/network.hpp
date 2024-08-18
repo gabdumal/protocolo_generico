@@ -11,6 +11,7 @@
 #include <thread>
 #include <mutex>
 #include <future>
+#include <condition_variable>
 
 using namespace std;
 
@@ -18,15 +19,21 @@ class Network
 {
 private:
     string name;
-    unordered_map<uuids::uuid, Entity> entities;
+    thread networkThread;
+
+    unordered_map<uuids::uuid, Entity *> entities;
+    mutex entitiesMutex;
+
     queue<Message> messages;
     mutex messagesMutex;
-    thread *networkThread;
-    list<future<bool>> messagesFutures;
-    mutex futuresMutex;
 
-    bool processMessage(Message &message);
-    bool sendMessage(Message message, Entity targetEntity);
+    condition_variable messageProcessedCV;
+    int processingMessagesCount;
+    bool stopThread;
+
+    /* Methods */
+    void processMessage(Message message);
+    void sendMessage(Message message);
 
 public:
     /* Construction */
@@ -34,11 +41,11 @@ public:
     ~Network();
 
     /* Getters */
-    string getName();
+    string getName() const;
 
     /* Methods */
-    bool connectEntity(Entity entity);
-    void disconnectEntity(Entity entity);
+    bool connectEntity(Entity &entity);
+    void disconnectEntity(uuids::uuid entityId);
     bool receiveMessage(Message message);
 };
 

@@ -33,8 +33,9 @@ void Entity::setName(string name)
 
 /* Methods */
 
-bool Entity::receiveMessage(Message message)
+void Entity::receiveMessage(const Message &message)
 {
+    // TODO: Add to queue
     ostringstream outputStream;
     setColor(outputStream, TextColor::CYAN);
     outputStream << "Entity [" << this->getName() << "] " << endl;
@@ -42,5 +43,4 @@ bool Entity::receiveMessage(Message message)
     outputStream << TAB << "Corrupted: " << (message.isCorrupted() ? "TRUE" : "FALSE") << endl;
     resetColor(outputStream);
     cout << outputStream.str();
-    return true;
 }

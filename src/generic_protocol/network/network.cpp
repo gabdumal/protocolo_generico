@@ -10,57 +10,62 @@ using namespace std;
 Network::Network(string name)
 {
     this->name = name;
-    networkThread = new thread([this]()
-                               {
-        while (true)
-        {
-            if (!messages.empty())
-            {
-                lock_guard<mutex> lock(messagesMutex);
-                Message message = messages.front();
-                messages.pop();
+    this->processingMessagesCount = 0;
+    this->stopThread = false;
+
+    this->networkThread = thread([this]()
+                                 {
+       while (true) {
+            unique_lock<mutex> lock(this->messagesMutex);
+             if (stopThread && messages.empty()) {
+                break;
+            }
+            if (!this->messages.empty()) {
+                Message message = this->messages.front();
+                this->messages.pop();
+                lock.unlock();
                 this->processMessage(message);
+            } else {
+                this->messageProcessedCV.wait(lock); // Wait for new messages
             }
         } });
-    networkThread->detach();
 }
 
 Network::~Network()
 {
-    // Wait for all threads to finish
-    while (true)
     {
-        std::lock_guard<std::mutex> lock(futuresMutex);
-        if (messagesFutures.empty())
-            break;
-
-        // Wait for the first future in the list
-        messagesFutures.front().wait();
-
-        // Remove the processed future from the list
-        messagesFutures.pop_front();
+        lock_guard<mutex> lock(this->messagesMutex);
+        this->stopThread = true;
+        this->messageProcessedCV.notify_all();
     }
-    delete networkThread;
+    if (this->networkThread.joinable())
+    {
+        this->networkThread.join();
+    }
 }
 
 /* Getters */
 
-string Network::getName()
+string Network::getName() const
 {
     return name;
 }
 
 /* Methods */
 
-bool Network::connectEntity(Entity entity)
+bool Network::connectEntity(Entity &entity)
 {
-    entities.insert(pair<uuids::uuid, Entity>(entity.getId(), entity));
+    lock_guard<mutex> lock(this->entitiesMutex);
+    this->entities[entity.getId()] = &entity;
+    this->messageProcessedCV.notify_all();
     return true;
 }
 
-void Network::disconnectEntity(Entity entity)
+void Network::disconnectEntity(uuids ::uuid entityId)
 {
-    entities.erase(entity.getId());
+    lock_guard<mutex> lock(this->entitiesMutex);
+    this->entities.erase(entityId);
+    this->messageProcessedCV.notify_all();
 }
 
 bool Network::receiveMessage(Message message)
@@ -78,8 +83,11 @@ bool Network::receiveMessage(Message message)
 
     try
     {
-        lock_guard<mutex> lock(messagesMutex);
-        messages.push(message);
+        lock_guard<mutex> lock(this->messagesMutex);
+        this->messages.push(message);
+        this->processingMessagesCount++;
+        cout << "Message received: " << message.getContent() << endl; // Debugging output
+        this->messageProcessedCV.notify_one();                        // Notify the network thread
     }
     catch (const exception &e)
     {
@@ -89,49 +97,48 @@ bool Network::receiveMessage(Message message)
     return true;
 }
 
-bool Network::processMessage(Message &message)
+void Network::processMessage(Message message)
 {
-    promise<bool> messagePromise;
-    auto messageFuture = messagePromise.get_future();
+    // Simulate network latency
+    chrono::milliseconds timeSpan(rand() % NETWORK_LATENCY);
+    this_thread::sleep_for(timeSpan);
 
-    lock_guard<mutex> lock(futuresMutex);
-    messagesFutures.push_back(move(messageFuture));
+    // Simulate message corruption
+    if (rand() % 100 < CORRUPTION_PROBABILITY * 100)
+        message.setCorrupted(true);
 
-    thread([this, message = move(message), promise = move(messagePromise)]() mutable
-           {
-               // Simulate network latency
-               chrono::milliseconds timeSpan(rand() % NETWORK_LATENCY);
-               this_thread::sleep_for(timeSpan);
+    cout << "Processing message: " << message.getContent() << endl; // Debugging output
+    this->sendMessage(message);
 
-               // Simulate message corruption
-                if (rand() % 100 < CORRUPTION_PROBABILITY * 100)
-                     message.setCorrupted(true);
-
-               auto targetEntity = entities.find(message.getTargetEntityId());
-               if (targetEntity != entities.end())
-               {
-                   bool hasBeenSent = this->sendMessage(message, targetEntity->second);
-                   return hasBeenSent;
-               }
-               else
-               {
-                   ostringstream outputStream;
-                   setColor(outputStream, TextColor::RED);
-                   outputStream << "Target entity " << "[" << message.getTargetEntityId() << "] " << "is not connected to the network " << this->getName() << "!" << endl;
-                   resetColor(outputStream);
-                   cerr << outputStream.str();
-                   return false;
-               }
-               
-               std::lock_guard<std::mutex> lock(futuresMutex);
-               messagesFutures.remove_if([](const std::future<bool> &fut)
-                                         { return fut.wait_for(std::chrono::seconds(0)) == std::future_status::ready; }); })
-        .detach();
-    return true;
+    // Brackets are used to limit the scope of the lock
+    {
+        lock_guard<mutex> lock(this->messagesMutex);
+        this->processingMessagesCount--;
+        if (processingMessagesCount == 0)
+        {
+            this->messageProcessedCV.notify_all(); // Notify the destructor
+        }
+    }
 }
 
-bool Network::sendMessage(Message message, Entity targetEntity)
+void Network::sendMessage(Message message)
 {
-    bool hasBeenReceived = targetEntity.receiveMessage(message);
-    return hasBeenReceived;
+    lock_guard<mutex> lock(this->entitiesMutex);
+    auto targetEntityPair = this->entities.find(message.getTargetEntityId());
+    if (targetEntityPair != entities.end())
+    {
+        Entity *entity = targetEntityPair->second;
+        if (entity)
+        {
+            entity->receiveMessage(message);
+        }
+        else
+        {
+            this->disconnectEntity(message.getTargetEntityId());
+        }
+    }
+    else
+    {
+        cerr << "Target entity [" << message.getTargetEntityId() << "] is not connected to the network " << this->getName() << "!" << endl;
+    }
 }

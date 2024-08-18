@@ -24,7 +24,7 @@ void GenericProtocol::run()
 {
     ostringstream outputStream;
 
-    outputStream << "01. Generic protocol" << endl
+    outputStream << "01. GENERIC PROTOCOL" << endl
                  << endl;
 
     outputStream << "Creating network" << endl;
@@ -44,8 +44,6 @@ void GenericProtocol::run()
     outputStream << endl;
     cout << outputStream.str();
     outputStream.str("");
-
-    sendMessage(entityA, entityB, "Hello, Baobá!", network, outputStream);
 
     outputStream << "Connecting entities to the network " << network.getName() << endl;
     bool hasBeenConnected = network.connectEntity(entityA);
@@ -71,7 +69,7 @@ Entity GenericProtocol::createEntity(string name, ostringstream &outputStream)
     return entity;
 }
 
-void GenericProtocol::sendMessage(Entity source, Entity target, string messageContent, Network &network, ostringstream &outputStream)
+void GenericProtocol::sendMessage(Entity &source, Entity &target, string messageContent, Network &network, ostringstream &outputStream)
 {
     outputStream << "Sending message" << endl;
 
