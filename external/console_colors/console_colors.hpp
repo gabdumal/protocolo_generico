@@ -5,7 +5,7 @@
 
 using namespace std;
 
-enum TextColor
+enum Color
 {
     BLACK = 30,
     RED = 31,
@@ -17,7 +17,7 @@ enum TextColor
     WHITE = 37
 };
 
-void setColor(ostream &outputStream, TextColor textColor = TextColor::BLACK, TextColor backgroundColor = TextColor::BLACK);
+void setColor(ostream &outputStream, Color color = Color::BLACK, Color backgroundColor = Color::BLACK);
 
 void resetColor(
     ostream &outputStream);

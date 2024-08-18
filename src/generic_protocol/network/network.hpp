@@ -18,10 +18,12 @@ using namespace std;
 class Network
 {
 private:
+    uuids::uuid_random_generator *uuidGenerator;
     string name;
     thread networkThread;
 
-    unordered_map<uuids::uuid, Entity *> entities;
+    unordered_map<uuids::uuid, Entity *>
+        entities;
     mutex entitiesMutex;
 
     queue<Message> messages;
@@ -37,7 +39,7 @@ private:
 
 public:
     /* Construction */
-    Network(string name);
+    Network(string name, uuids::uuid_random_generator *uuidGenerator);
     ~Network();
 
     /* Getters */

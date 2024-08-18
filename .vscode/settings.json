@@ -83,7 +83,8 @@
         "set": "cpp",
         "mutex": "cpp",
         "stop_token": "cpp",
-        "thread": "cpp"
+        "thread": "cpp",
+        "unordered_set": "cpp"
     },
     "cSpell.words": [
         "Zircônia"

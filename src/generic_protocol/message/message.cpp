@@ -5,13 +5,14 @@ using namespace std;
 
 /* Construction */
 
-Message::Message(uuids::uuid_random_generator *uuidGenerator, uuids::uuid sourceEntityId, uuids::uuid targetEntityId, string content)
+Message::Message(uuids::uuid_random_generator *uuidGenerator, uuids::uuid sourceEntityId, uuids::uuid targetEntityId, string content, Code code)
 {
     this->id = (*uuidGenerator)();
     this->sourceEntityId = sourceEntityId;
     this->targetEntityId = targetEntityId;
     this->content = content;
     this->corrupted = false;
+    this->code = code;
 }
 
 Message::~Message() {}
@@ -41,6 +42,11 @@ string Message::getContent() const
 bool Message::isCorrupted() const
 {
     return this->corrupted;
+}
+
+Code Message::getCode() const
+{
+    return this->code;
 }
 
 /* Setters */

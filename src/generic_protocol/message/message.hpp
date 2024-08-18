@@ -8,6 +8,8 @@ using namespace std;
 
 enum Code
 {
+    SYN,
+    FIN,
     ACK,
     NACK,
     DATA
@@ -21,6 +23,7 @@ private:
     uuids::uuid targetEntityId;
     string content;
     bool corrupted;
+    Code code;
 
 public:
     /* Construction */
@@ -28,7 +31,8 @@ public:
         uuids::uuid_random_generator *uuidGenerator,
         uuids::uuid sourceEntityId,
         uuids::uuid targetEntityId,
-        string content);
+        string content,
+        Code code = Code::DATA);
     ~Message();
 
     /* Getters */
@@ -37,6 +41,7 @@ public:
     uuids::uuid getTargetEntityId() const;
     string getContent() const;
     bool isCorrupted() const;
+    Code getCode() const;
 
     /* Setters */
     void setCorrupted(bool isCorrupted);

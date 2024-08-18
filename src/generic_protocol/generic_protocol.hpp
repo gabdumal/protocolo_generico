@@ -21,7 +21,7 @@ public:
 
     /* Static methods */
     static Entity createEntity(string name, function<void(string)> printMessage);
-    static void sendMessage(Entity &source, Entity &target, string messageContent, Network &network, ostringstream &outputStream);
+    static void sendMessage(Entity &source, Entity &target, string messageContent, Code messageCode, Network &network, ostringstream &outputStream);
 };
 
 #endif // _GENERIC_PROTOCOL_HPP

@@ -1,13 +1,13 @@
 #include <generic_protocol.hpp>
-#include <iostream>
 #include <constants.hpp>
+#include <iostream>
 
 using namespace std;
 
 // Define the static UUID Generator
 uuids::uuid_random_generator *GenericProtocol::uuidGenerator = nullptr;
 
-/* Construction*/
+/* Construction */
 
 GenericProtocol::GenericProtocol(uuids::uuid_random_generator *uuidGenerator)
 {
@@ -30,7 +30,7 @@ void GenericProtocol::run()
     outputStream << "Creating network" << endl;
     cout << outputStream.str();
     outputStream.str("");
-    Network network = Network("Zircônia");
+    Network network = Network("Zircônia", this->uuidGenerator);
     outputStream << TAB << "Network: " << network.getName() << endl
                  << endl;
     cout << outputStream.str();
@@ -58,12 +58,9 @@ void GenericProtocol::run()
     cout << outputStream.str();
     outputStream.str("");
 
-    for (size_t i = 0; i < 4; i++)
-    {
-        sendMessage(entityA, entityB, "Hello, Baobá! (" + to_string(i) + ")", network, outputStream);
-    }
+    sendMessage(entityA, entityB, "Hello, Baobá!", Code::SYN, network, outputStream);
 
-    chrono::milliseconds timeSpan(rand() % 10000);
+    chrono::milliseconds timeSpan(rand() % 30000);
     this_thread::sleep_for(timeSpan);
 
     outputStream << "Entities' storage" << endl;
@@ -90,11 +87,11 @@ Entity GenericProtocol::createEntity(string name, function<void(string)> printMe
     return entity;
 }
 
-void GenericProtocol::sendMessage(Entity &source, Entity &target, string messageContent, Network &network, ostringstream &outputStream)
+void GenericProtocol::sendMessage(Entity &source, Entity &target, string messageContent, Code messageCode, Network &network, ostringstream &outputStream)
 {
     outputStream << "Sending message" << endl;
 
-    Message message = Message(uuidGenerator, source.getId(), target.getId(), messageContent);
+    Message message = Message(uuidGenerator, source.getId(), target.getId(), messageContent, messageCode);
 
     outputStream << TAB << "Source entity: " << source.getName() << " [" << source.getId() << "]" << endl;
 

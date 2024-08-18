@@ -2,10 +2,10 @@
 
 using namespace std;
 
-void setColor(ostream &outputStream = cout, TextColor textColor, TextColor backgroundColor)
+void setColor(ostream &outputStream = cout, Color color, Color backgroundColor)
 {
-    outputStream << "\033[" << textColor;
-    if (backgroundColor != TextColor::BLACK)
+    outputStream << "\033[" << color;
+    if (backgroundColor != Color::BLACK)
     {
         outputStream << ";" << backgroundColor;
     }

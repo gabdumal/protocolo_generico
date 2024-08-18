@@ -7,8 +7,9 @@ using namespace std;
 
 /* Construction */
 
-Network::Network(string name)
+Network::Network(string name, uuids::uuid_random_generator *uuidGenerator)
 {
+    this->uuidGenerator = uuidGenerator;
     this->name = name;
     this->processingMessagesCount = 0;
     this->stopThread = false;
@@ -73,7 +74,7 @@ bool Network::receiveMessage(Message message)
     if (rand() % 100 < PACKET_LOSS_PROBABILITY * 100)
     {
         ostringstream outputStream;
-        setColor(outputStream, TextColor::YELLOW);
+        setColor(outputStream, Color::YELLOW);
         outputStream << "Message " << "[" << message.getId() << "] " << "has been lost in the network " << this->getName() << "!" << endl;
         resetColor(outputStream);
         cout << outputStream.str();
@@ -127,7 +128,12 @@ void Network::sendMessage(Message message)
         Entity *entity = targetEntityPair->second;
         if (entity)
         {
-            entity->receiveMessage(message);
+            Message *returnedMessage = entity->receiveMessage(message, this->uuidGenerator);
+            if (returnedMessage != nullptr)
+            {
+                this->receiveMessage(*returnedMessage);
+                delete returnedMessage;
+            }
         }
         else
         {
