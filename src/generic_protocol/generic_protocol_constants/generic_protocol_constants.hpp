@@ -3,8 +3,8 @@
 
 namespace GenericProtocolConstants
 {
-    constexpr float packetLossProbability = 0.25;
-    constexpr float packetCorruptionProbability = 0.35;
+    constexpr float packetLossProbability = 0;
+    constexpr float packetCorruptionProbability = 0;
     constexpr int networkLatency = 1000;
     constexpr bool debugInformation = true;
 }

@@ -36,6 +36,7 @@ private:
     /* Methods */
     void processMessage(Message message);
     void sendMessage(Message message);
+    void printInformation(string information, ostream &outputStream, ConsoleColors::Color color = ConsoleColors::Color::DEFAULT) const;
 
 public:
     /* Construction */

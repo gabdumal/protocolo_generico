@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <optional>
 #include <memory>
+#include <chrono>
+#include <thread>
 
 using namespace std;
 
@@ -26,6 +28,7 @@ private:
     string name;
     string storage;
     unordered_map<uuids::uuid, shared_ptr<Connection>> connections;
+    optional<uuids::uuid> lastUnacknowledgedMessageId;
 
     /* Methods */
     optional<Message> receiveSynMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
@@ -35,6 +38,7 @@ private:
     optional<Message> receiveAckAckSynMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
     optional<Message> receiveNackMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
     optional<Message> receiveDataMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
+    void printInformation(string information, ostream &outputStream, ConsoleColors::Color color = ConsoleColors::Color::DEFAULT) const;
 
 public:
     /* Construction */
@@ -49,6 +53,8 @@ public:
     void setName(string name);
 
     /* Methods */
+    bool canSendMessage() const;
+    bool sendMessage(Message &message);
     optional<Message> receiveMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
     void printStorage(function<void(string)> printMessage) const;
     bool isConnectedTo(uuids::uuid entityId) const;

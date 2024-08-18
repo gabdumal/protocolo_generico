@@ -23,6 +23,8 @@ Entity::Entity(uuids::uuid_random_generator *uuidGenerator, string name)
     this->id = (*uuidGenerator)();
     this->setName(name);
     this->storage = "";
+    this->connections = unordered_map<uuids::uuid, shared_ptr<Connection>>();
+    this->lastUnacknowledgedMessageId = nullopt;
 }
 
 Entity::~Entity() {}
@@ -52,15 +54,10 @@ optional<Message> Entity::receiveMessage(const Message &message, uuids::uuid_ran
 {
     if (GenericProtocolConstants::debugInformation)
     {
-        ostringstream outputStream;
-        setColor(outputStream, Color::CYAN);
-        outputStream << "Entity " << this->getName() << " [" << this->getId() << "]" << endl;
-        outputStream << TAB << "Received message" << endl;
-        outputStream << TAB << "Content: " << endl;
-        message.print([&outputStream](string line)
-                      { outputStream << TAB << TAB << line << endl; });
-        resetColor(outputStream);
-        cout << outputStream.str() << endl;
+        ostringstream messageContent;
+        message.print([&messageContent](string line)
+                      { messageContent << ConsoleColors::tab << line << endl; });
+        this->printInformation("Received message\n" + messageContent.str(), cout);
     }
 
     switch (message.getCode())
@@ -208,4 +205,38 @@ optional<Message> Entity::receiveDataMessage(const Message &message, uuids::uuid
     }
 
     return Message(uuidGenerator, this->id, message.getSourceEntityId(), "NACK\n" + to_string(message.getId()), Code::NACK);
+}
+
+bool Entity::sendMessage(Message &message)
+{
+    if (!canSendMessage())
+        return false;
+
+    if (isConnectedTo(message.getTargetEntityId()))
+    {
+        lastUnacknowledgedMessageId = message.getId();
+        return true;
+    }
+    else if (message.getCode() == Code::SYN)
+    {
+        lastUnacknowledgedMessageId = message.getId();
+        return true;
+    }
+
+    return false;
+}
+
+bool Entity::canSendMessage() const
+{
+    // If there is no unacknowledged message, the entity can send a new message
+    return !this->lastUnacknowledgedMessageId.has_value();
+}
+
+void Entity::printInformation(
+    string information,
+    ostream &outputStream,
+    ConsoleColors::Color color) const
+{
+    string header = "Entity " + this->getName() + " [" + to_string(this->getId()) + "]";
+    ConsoleColors::printInformation(header, information, outputStream, ConsoleColors::Color::BRIGHT_WHITE, ConsoleColors::Color::CYAN, color);
 }

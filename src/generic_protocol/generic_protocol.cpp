@@ -59,6 +59,8 @@ void GenericProtocol::run()
     cout << outputStream.str();
     outputStream.str("");
 
+    GenericProtocol::sendMessage(entityA, entityB, "SYN", Code::SYN, network, outputStream);
+
     std::deque<string> contentsDequeue = {
         "Hello, Baobá!",
         "Fragment 1",
@@ -118,6 +120,7 @@ void GenericProtocol::sendMessage(Entity &source, Entity &target, string message
         });
 
     outputStream << TAB << "Network: " << network.getName() << endl;
+
     bool hasBeenProcessed = network.receiveMessage(message);
     if (hasBeenProcessed)
         outputStream << TAB << "Message sent through network!" << endl;

@@ -75,11 +75,7 @@ bool Network::receiveMessage(Message message)
     {
         if (GenericProtocolConstants::debugInformation)
         {
-            ostringstream outputStream;
-            setColor(outputStream, Color::YELLOW);
-            outputStream << "Message " << "[" << message.getId() << "] " << "has been lost in the network " << this->getName() << "!" << endl;
-            resetColor(outputStream);
-            cout << outputStream.str();
+            this->printInformation("Message " + to_string(message.getId()) + " has been lost in the network " + this->getName() + "!", cout, ConsoleColors::Color::YELLOW);
         }
         return false;
     }
@@ -93,11 +89,7 @@ bool Network::receiveMessage(Message message)
     }
     catch (const exception &e)
     {
-        ostringstream outputStream;
-        setColor(outputStream, Color::RED);
-        outputStream << "Error while receiving message in the network " << this->getName() << ": " << e.what() << endl;
-        resetColor(outputStream);
-        cerr << outputStream.str();
+        this->printInformation("Error while receiving message in the network " + this->getName() + ": " + e.what(), cerr, ConsoleColors::Color::RED);
         return false;
     }
     return true;
@@ -112,11 +104,7 @@ void Network::processMessage(Message message)
     // Simulate message corruption
     if (rand() % 100 < GenericProtocolConstants::packetCorruptionProbability * 100)
     {
-        ostringstream outputStream;
-        setColor(outputStream, Color::YELLOW);
-        outputStream << "Message " << "[" << message.getId() << "] " << "has been corrupted in the network " << this->getName() << "!" << endl;
-        resetColor(outputStream);
-        cout << outputStream.str();
+        this->printInformation("Message " + to_string(message.getId()) + " has been corrupted in the network " + this->getName() + "!", cout, ConsoleColors::Color::YELLOW);
         message.setCorrupted(true);
     }
 
@@ -142,10 +130,25 @@ void Network::sendMessage(Message message)
         Entity *entity = targetEntityPair->second;
         if (entity)
         {
-            optional<Message> returnedMessage = entity->receiveMessage(message, this->uuidGenerator);
-            if (returnedMessage)
+            bool canSendMessage = entity->sendMessage(message);
+            if (!canSendMessage)
             {
-                this->receiveMessage(returnedMessage.value());
+                if (GenericProtocolConstants::debugInformation)
+                {
+                    this->printInformation("Target entity " + entity->getName() + " [" + to_string(entity->getId()) + "] cannot receive the message " + "[" + to_string(message.getId()) + "]!", cout, ConsoleColors::Color::RED);
+                }
+            }
+            else
+            {
+                if (GenericProtocolConstants::debugInformation)
+                {
+                    this->printInformation("Message " + to_string(message.getId()) + " has been sent to the target entity " + entity->getName() + " [" + to_string(entity->getId()) + "]!", cout, ConsoleColors::Color::GREEN);
+                }
+                optional<Message> returnedMessage = entity->receiveMessage(message, this->uuidGenerator);
+                if (returnedMessage)
+                {
+                    this->receiveMessage(returnedMessage.value());
+                }
             }
         }
         else
@@ -155,10 +158,12 @@ void Network::sendMessage(Message message)
     }
     else
     {
-        ostringstream outputStream;
-        setColor(outputStream, Color::RED);
-        outputStream << "Target entity [" << message.getTargetEntityId() << "] is not connected to the network " << this->getName() << "!" << endl;
-        resetColor(outputStream);
-        cerr << outputStream.str();
+        this->printInformation("Target entity [" + to_string(message.getTargetEntityId()) + "] is not connected to the network " + this->getName() + "!", cerr, ConsoleColors::Color::RED);
     }
+}
+
+void Network::printInformation(string information, ostream &outputStream, ConsoleColors::Color color) const
+{
+    string header = "Network " + this->getName();
+    ConsoleColors::printInformation(header, information, outputStream, ConsoleColors::Color::BRIGHT_WHITE, ConsoleColors::Color::BLUE, color);
 }
