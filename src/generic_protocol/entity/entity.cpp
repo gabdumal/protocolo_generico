@@ -37,7 +37,7 @@ bool Entity::receiveMessage(Message message)
 {
     // message.print([](string message)
     //               { cout << message << endl; });
-    stringstream outputStream;
+    ostringstream outputStream;
     setColor(outputStream, TextColor::GREEN);
     outputStream << "Entity [" << this->getName() << "] " << endl;
     outputStream << TAB << "Message received: [" << message.getId() << "]" << endl;

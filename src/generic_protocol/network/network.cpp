@@ -27,11 +27,18 @@ Network::Network(string name)
 
 Network::~Network()
 {
-    // Wait for all messages to be processed
-    while (!messages.empty())
+    // Wait for all threads to finish
+    while (true)
     {
-        chrono::milliseconds timeSpan(1000);
-        this_thread::sleep_for(timeSpan);
+        std::lock_guard<std::mutex> lock(futuresMutex);
+        if (messagesFutures.empty())
+            break;
+
+        // Wait for the first future in the list
+        messagesFutures.front().wait();
+
+        // Remove the processed future from the list
+        messagesFutures.pop_front();
     }
     delete networkThread;
 }
@@ -61,7 +68,7 @@ bool Network::receiveMessage(Message message)
     // Simulate packet loss
     if (rand() % 100 < PACKET_LOSS_PROBABILITY * 100)
     {
-        stringstream outputStream;
+        ostringstream outputStream;
         setColor(outputStream, TextColor::YELLOW);
         outputStream << "Message " << "[" << message.getId() << "] " << "has been lost in the network " << this->getName() << "!" << endl;
         resetColor(outputStream);
@@ -82,23 +89,41 @@ bool Network::receiveMessage(Message message)
     return true;
 }
 
-bool Network::processMessage(Message message)
+bool Network::processMessage(Message &message)
 {
-    auto targetEntity = entities.find(message.getTargetEntityId());
-    if (targetEntity != entities.end())
-    {
-        bool hasBeenSent = this->sendMessage(message, targetEntity->second);
-        return hasBeenSent;
-    }
-    else
-    {
-        stringstream outputStream;
-        setColor(outputStream, TextColor::RED);
-        outputStream << "Target entity " << "[" << message.getTargetEntityId() << "] " << "is not connected to the network " << this->getName() << "!" << endl;
-        resetColor(outputStream);
-        cerr << outputStream.str();
-        return false;
-    }
+    promise<bool> messagePromise;
+    auto messageFuture = messagePromise.get_future();
+
+    lock_guard<mutex> lock(futuresMutex);
+    messagesFutures.push_back(move(messageFuture));
+
+    thread([this, message = move(message), promise = move(messagePromise)]() mutable
+           {
+               // Simulate network latency
+               chrono::milliseconds timeSpan(rand() % NETWORK_LATENCY);
+               this_thread::sleep_for(timeSpan);
+
+               auto targetEntity = entities.find(message.getTargetEntityId());
+               if (targetEntity != entities.end())
+               {
+                   bool hasBeenSent = this->sendMessage(message, targetEntity->second);
+                   return hasBeenSent;
+               }
+               else
+               {
+                   ostringstream outputStream;
+                   setColor(outputStream, TextColor::RED);
+                   outputStream << "Target entity " << "[" << message.getTargetEntityId() << "] " << "is not connected to the network " << this->getName() << "!" << endl;
+                   resetColor(outputStream);
+                   cerr << outputStream.str();
+                   return false;
+               }
+               
+               std::lock_guard<std::mutex> lock(futuresMutex);
+               messagesFutures.remove_if([](const std::future<bool> &fut)
+                                         { return fut.wait_for(std::chrono::seconds(0)) == std::future_status::ready; }); })
+        .detach();
+    return true;
 }
 
 bool Network::sendMessage(Message message, Entity targetEntity)

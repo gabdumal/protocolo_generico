@@ -17,29 +17,29 @@ Message::~Message() {}
 
 /* Getters */
 
-uuids::uuid Message::getId()
+uuids::uuid Message::getId() const
 {
     return this->id;
 }
 
-uuids::uuid Message::getSourceEntityId()
+uuids::uuid Message::getSourceEntityId() const
 {
     return this->sourceEntityId;
 }
 
-uuids::uuid Message::getTargetEntityId()
+uuids::uuid Message::getTargetEntityId() const
 {
     return this->targetEntityId;
 }
 
-string Message::getContent()
+string Message::getContent() const
 {
     return this->content;
 }
 
 /* Methods */
 
-void Message::print(std::function<void(std::string)> printMessage)
+void Message::print(std::function<void(std::string)> printMessage) const
 {
     printMessage("ID: " + uuids::to_string(this->getId()));
     printMessage("Source entity ID: " + uuids::to_string(this->getSourceEntityId()));

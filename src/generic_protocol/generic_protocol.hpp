@@ -20,8 +20,8 @@ public:
     void run();
 
     /* Static methods */
-    static Entity createEntity(string name, stringstream &outputStream);
-    static void sendMessage(Entity source, Entity target, string messageContent, Network &network, stringstream &outputStream);
+    static Entity createEntity(string name, ostringstream &outputStream);
+    static void sendMessage(Entity source, Entity target, string messageContent, Network &network, ostringstream &outputStream);
 };
 
 #endif // _GENERIC_PROTOCOL_HPP

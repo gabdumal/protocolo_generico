@@ -31,13 +31,13 @@ public:
     ~Message();
 
     /* Getters */
-    uuids::uuid getId();
-    uuids::uuid getSourceEntityId();
-    uuids::uuid getTargetEntityId();
-    string getContent();
+    uuids::uuid getId() const;
+    uuids::uuid getSourceEntityId() const;
+    uuids::uuid getTargetEntityId() const;
+    string getContent() const;
 
     /* Methods */
-    void print(std::function<void(std::string)> printMessage);
+    void print(std::function<void(std::string)> printMessage) const;
 };
 
 #endif // _MESSAGE_HPP

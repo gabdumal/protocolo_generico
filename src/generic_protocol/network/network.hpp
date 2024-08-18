@@ -7,8 +7,10 @@
 #include <string>
 #include <unordered_map>
 #include <queue>
+#include <list>
 #include <thread>
 #include <mutex>
+#include <future>
 
 using namespace std;
 
@@ -20,8 +22,10 @@ private:
     queue<Message> messages;
     mutex messagesMutex;
     thread *networkThread;
+    list<future<bool>> messagesFutures;
+    mutex futuresMutex;
 
-    bool processMessage(Message message);
+    bool processMessage(Message &message);
     bool sendMessage(Message message, Entity targetEntity);
 
 public:

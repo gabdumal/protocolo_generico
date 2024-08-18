@@ -22,7 +22,7 @@ GenericProtocol::~GenericProtocol()
 
 void GenericProtocol::run()
 {
-    stringstream outputStream;
+    ostringstream outputStream;
 
     outputStream << "01. Generic protocol" << endl
                  << endl;
@@ -64,14 +64,14 @@ void GenericProtocol::run()
 
 /* Static methods */
 
-Entity GenericProtocol::createEntity(string name, stringstream &outputStream)
+Entity GenericProtocol::createEntity(string name, ostringstream &outputStream)
 {
     outputStream << "Creating entity " << name << endl;
     Entity entity = Entity(uuidGenerator, name);
     return entity;
 }
 
-void GenericProtocol::sendMessage(Entity source, Entity target, string messageContent, Network &network, stringstream &outputStream)
+void GenericProtocol::sendMessage(Entity source, Entity target, string messageContent, Network &network, ostringstream &outputStream)
 {
     outputStream << "Sending message" << endl;
 
@@ -98,4 +98,5 @@ void GenericProtocol::sendMessage(Entity source, Entity target, string messageCo
     outputStream << endl;
     cout << outputStream.str();
     outputStream.str("");
+    cout.flush();
 }
