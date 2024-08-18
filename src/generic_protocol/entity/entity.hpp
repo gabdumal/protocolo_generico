@@ -7,6 +7,8 @@
 #include <message.hpp>
 #include <string>
 #include <unordered_map>
+#include <optional>
+#include <memory>
 
 using namespace std;
 
@@ -15,15 +17,24 @@ class Entity
 private:
     struct Connection
     {
-        uuids::uuid synMessageId;
-        uuids::uuid synAckMessageId;
-        uuids::uuid synAckAckMessageId;
+        optional<uuids::uuid> synMessageId;
+        optional<uuids::uuid> ackSynMessageId;
+        optional<uuids::uuid> ackAckSynMessageId;
     };
 
     uuids::uuid id;
     string name;
     string storage;
-    unordered_map<uuids::uuid, Connection> connections;
+    unordered_map<uuids::uuid, shared_ptr<Connection>> connections;
+
+    /* Methods */
+    optional<Message> receiveSynMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
+    optional<Message> receiveFinMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
+    optional<Message> receiveAckMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
+    optional<Message> receiveAckSynMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
+    optional<Message> receiveAckAckSynMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
+    optional<Message> receiveNackMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
+    optional<Message> receiveDataMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
 
 public:
     /* Construction */
@@ -38,9 +49,10 @@ public:
     void setName(string name);
 
     /* Methods */
-    Message *receiveMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
+    optional<Message> receiveMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator);
     void printStorage(function<void(string)> printMessage) const;
     bool isConnectedTo(uuids::uuid entityId) const;
+    bool canReceiveDataFrom(uuids::uuid entityId) const;
 };
 
 #endif // _ENTITY_HPP

@@ -128,11 +128,10 @@ void Network::sendMessage(Message message)
         Entity *entity = targetEntityPair->second;
         if (entity)
         {
-            Message *returnedMessage = entity->receiveMessage(message, this->uuidGenerator);
-            if (returnedMessage != nullptr)
+            optional<Message> returnedMessage = entity->receiveMessage(message, this->uuidGenerator);
+            if (returnedMessage)
             {
-                this->receiveMessage(*returnedMessage);
-                delete returnedMessage;
+                this->receiveMessage(returnedMessage.value());
             }
         }
         else

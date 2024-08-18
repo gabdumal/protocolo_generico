@@ -2,6 +2,19 @@
 
 using namespace std;
 
+/* Auxiliary */
+
+string getLineContent(int line, string content)
+{
+    istringstream contentStream(content);
+    string lineContent;
+    for (int i = 0; i < line; i++)
+    {
+        getline(contentStream, lineContent);
+    }
+    return lineContent;
+}
+
 /* Construction */
 
 Entity::Entity(uuids::uuid_random_generator *uuidGenerator, string name)
@@ -34,7 +47,7 @@ void Entity::setName(string name)
 
 /* Methods */
 
-Message *Entity::receiveMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
+optional<Message> Entity::receiveMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
 {
     ostringstream outputStream;
     setColor(outputStream, Color::CYAN);
@@ -45,107 +58,30 @@ Message *Entity::receiveMessage(const Message &message, uuids::uuid_random_gener
     switch (message.getCode())
     {
     case Code::SYN:
-    {
-        if (!this->isConnectedTo(message.getSourceEntityId()))
-        {
-            Message *synAckMessage = new Message(uuidGenerator, this->id, message.getSourceEntityId(), "SYN-ACK\n" + to_string(message.getId()), Code::ACK);
-            this->connections.insert(pair<uuids::uuid, Connection>(message.getSourceEntityId(), Connection{
-                                                                                                    message.getId(),
-                                                                                                    synAckMessage->getId(),
-                                                                                                }));
-            return synAckMessage;
-        }
-        else
-        {
-            return new Message(uuidGenerator, this->id, message.getSourceEntityId(), "NACK\n" + to_string(message.getId()), Code::NACK);
-        }
-    }
+        return this->receiveSynMessage(message, uuidGenerator);
 
     case Code::FIN:
-    {
-        if (this->isConnectedTo(message.getSourceEntityId()))
-            this->connections.erase(message.getSourceEntityId());
-        break;
-    }
+        return this->receiveFinMessage(message, uuidGenerator);
 
     case Code::ACK:
-    {
-        string content = message.getContent();
-        string firstLine = content.substr(0, content.find("\n"));
-        if (firstLine == "SYN-ACK")
-        { // If it is a SYN-ACK message, try to extract the SYN message ID
-            string secondLine = content.substr(content.find("\n") + 1);
-            std::optional<uuids::uuid> possibleUuid = uuids::uuid::from_string(secondLine);
-            if (possibleUuid.has_value())
-            {
-                uuids::uuid synMessageId = possibleUuid.value();
-                Message *synAckAckMessage = new Message(uuidGenerator, this->id, message.getSourceEntityId(), "SYN-ACK-ACK\n" + to_string(message.getId()), Code::ACK);
-
-                this->connections.insert(pair<uuids::uuid, Connection>(message.getSourceEntityId(), Connection{
-                                                                                                        synMessageId,
-                                                                                                        message.getId(),
-                                                                                                        synAckAckMessage->getId(),
-                                                                                                    }));
-                return synAckAckMessage;
-            }
-            else
-            {
-                return new Message(uuidGenerator, this->id, message.getSourceEntityId(), "NACK\n" + to_string(message.getId()), Code::NACK);
-            }
-        }
-        else if (firstLine == "SYN-ACK-ACK")
-        { // If it is a SYN-ACK-ACK message, try to extract the SYN-ACK message ID
-            string secondLine = content.substr(content.find("\n") + 1);
-            std::optional<uuids::uuid> possibleUuid = uuids::uuid::from_string(secondLine);
-            if (possibleUuid.has_value())
-            {
-                uuids::uuid synAckMessageId = possibleUuid.value();
-                auto connection = this->connections.find(message.getSourceEntityId());
-                if (connection != this->connections.end() && connection->second.synAckMessageId == synAckMessageId)
-                {
-                    connection->second.synAckAckMessageId = message.getId();
-                }
-                else
-                {
-                    return new Message(uuidGenerator, this->id, message.getSourceEntityId(), "NACK\n" + to_string(message.getId()), Code::NACK);
-                }
-            }
-            else
-            {
-                return new Message(uuidGenerator, this->id, message.getSourceEntityId(), "NACK\n" + to_string(message.getId()), Code::NACK);
-            }
-        }
-        break;
-    }
+        return this->receiveAckMessage(message, uuidGenerator);
 
     case Code::NACK:
-    {
-        break;
-    }
+        return this->receiveNackMessage(message, uuidGenerator);
 
     case Code::DATA:
-    {
-        if (this->isConnectedTo(message.getSourceEntityId()))
-        {
-            this->storage += message.getContent() + "\n";
-            return new Message(uuidGenerator, this->id, message.getSourceEntityId(), "ACK\n" + to_string(message.getId()), Code::ACK);
-        }
-        else
-        {
-            return new Message(uuidGenerator, this->id, message.getSourceEntityId(), "NACK\n" + to_string(message.getId()), Code::NACK);
-        }
-    }
+        return this->receiveDataMessage(message, uuidGenerator);
     }
 
-    return nullptr;
+    return nullopt;
 }
 
 void Entity::printStorage(function<void(string)> printMessage) const
 {
     printMessage("=== BEGIN ===");
-    std::istringstream contentStream(this->storage);
-    std::string line;
-    while (std::getline(contentStream, line))
+    istringstream contentStream(this->storage);
+    string line;
+    while (getline(contentStream, line))
     {
         printMessage(line);
     }
@@ -155,4 +91,113 @@ void Entity::printStorage(function<void(string)> printMessage) const
 bool Entity::isConnectedTo(uuids::uuid entityId) const
 {
     return this->connections.find(entityId) != this->connections.end();
+}
+
+bool Entity::canReceiveDataFrom(uuids::uuid entityId) const
+{
+    auto connection = this->connections.find(entityId);
+    return connection != this->connections.end() && connection->second->ackAckSynMessageId.has_value();
+}
+
+optional<Message> Entity::receiveSynMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
+{
+    if (!this->isConnectedTo(message.getSourceEntityId()))
+    {
+        Message ackSynMessage(uuidGenerator, this->id, message.getSourceEntityId(), "ACK-SYN\n" + to_string(message.getId()), Code::ACK);
+
+        // Still need to receive the ACK-ACK-SYN message
+        auto connection = make_shared<Connection>(
+            Connection{
+                message.getId(),
+                ackSynMessage.getId(),
+                nullopt});
+
+        this->connections.insert(pair<uuids::uuid, shared_ptr<Connection>>(message.getSourceEntityId(), connection));
+        return ackSynMessage;
+    }
+    else
+    {
+        return Message(uuidGenerator, this->id, message.getSourceEntityId(), "NACK-SYN\n" + to_string(message.getId()), Code::NACK);
+    }
+}
+
+optional<Message> Entity::receiveFinMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
+{
+    if (this->isConnectedTo(message.getSourceEntityId()))
+        this->connections.erase(message.getSourceEntityId());
+    return nullopt;
+}
+
+optional<Message> Entity::receiveAckMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
+{
+    string firstLine = getLineContent(1, message.getContent());
+    if (firstLine == "ACK-SYN")
+        return this->receiveAckSynMessage(message, uuidGenerator);
+    else if (firstLine == "ACK-ACK-SYN")
+        return this->receiveAckAckSynMessage(message, uuidGenerator);
+    return nullopt;
+}
+
+optional<Message> Entity::receiveAckSynMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
+{
+    string secondLine = getLineContent(2, message.getContent());
+    optional<uuids::uuid> uuidContainer = uuids::uuid::from_string(secondLine);
+
+    if (uuidContainer.has_value())
+    {
+        uuids::uuid synMessageId = uuidContainer.value();
+        Message ackAckSynMessage(uuidGenerator, this->id, message.getSourceEntityId(), "ACK-ACK-SYN\n" + to_string(message.getId()), Code::ACK);
+
+        auto connection = make_shared<Connection>(
+            Connection{
+                synMessageId,
+                message.getId(),
+                ackAckSynMessage.getId(),
+            });
+
+        this->connections.insert(pair<uuids::uuid, shared_ptr<Connection>>(message.getSourceEntityId(), connection));
+
+        return ackAckSynMessage;
+    }
+
+    return Message(uuidGenerator, this->id, message.getSourceEntityId(), "NACK\n" + to_string(message.getId()), Code::NACK);
+}
+
+optional<Message> Entity::receiveAckAckSynMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
+{
+    string secondLine = getLineContent(2, message.getContent());
+    optional<uuids::uuid> uuidContainer = uuids::uuid::from_string(secondLine);
+
+    if (uuidContainer.has_value())
+    {
+        uuids::uuid ackSynMessageId = uuidContainer.value();
+
+        auto connection = this->connections.find(message.getSourceEntityId());
+
+        if (this->isConnectedTo(message.getSourceEntityId()) && connection->second->ackSynMessageId == ackSynMessageId)
+        {
+            // Update connection
+            connection->second->ackAckSynMessageId = message.getId();
+            return nullopt;
+        }
+    }
+
+    return Message(uuidGenerator, this->id, message.getSourceEntityId(), "NACK-ACK-ACK-SYN \n" + to_string(message.getId()), Code::NACK);
+}
+
+optional<Message> Entity::receiveNackMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
+{
+    return nullopt;
+}
+
+optional<Message> Entity::receiveDataMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
+{
+    if (this->isConnectedTo(message.getSourceEntityId()))
+    {
+        this->storage += message.getContent() + "\n";
+
+        return Message(uuidGenerator, this->id, message.getSourceEntityId(), "ACK\n" + to_string(message.getId()), Code::ACK);
+    }
+
+    return Message(uuidGenerator, this->id, message.getSourceEntityId(), "NACK\n" + to_string(message.getId()), Code::NACK);
 }
