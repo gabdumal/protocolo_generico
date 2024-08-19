@@ -18,13 +18,13 @@ string getLineContent(int line, string content)
 
 /* Construction */
 
-Entity::Entity(uuids::uuid_random_generator *uuidGenerator, string name)
+Entity::Entity(string name, shared_ptr<uuids::uuid_random_generator> uuidGenerator)
 {
     this->id = (*uuidGenerator)();
     this->setName(name);
     this->storage = "";
     this->connections = unordered_map<uuids::uuid, shared_ptr<Connection>>();
-    this->lastUnacknowledgedMessageId = nullopt;
+    this->lastUnacknowledgedMessage = nullopt;
 }
 
 Entity::~Entity() {}
@@ -79,7 +79,7 @@ bool Entity::isConnectedTo(uuids::uuid entityId) const
 bool Entity::canSendMessage() const
 {
     // If there is no unacknowledged message, the entity can send a new message
-    return !this->lastUnacknowledgedMessageId.has_value();
+    return !this->lastUnacknowledgedMessage.has_value();
 }
 
 bool Entity::canReceiveDataFrom(uuids::uuid entityId) const
@@ -95,8 +95,9 @@ bool Entity::sendMessage(Message &message)
         ostringstream messageContent;
         message.print([&messageContent](string line)
                       { messageContent << ConsoleColors::tab << line << endl; });
-        string lastUnacknowledgedMessageIdAsString = this->lastUnacknowledgedMessageId.has_value() ? uuids::to_string(this->lastUnacknowledgedMessageId.value()) : "N/A";
-        string information = "Last unacknowledged message ID: [" + lastUnacknowledgedMessageIdAsString + "]\nSending message\n" + messageContent.str();
+        optional<uuids::uuid> lastUnacknowledgedMessageId = this->lastUnacknowledgedMessage.has_value() ? optional<uuids::uuid>(this->lastUnacknowledgedMessage.value().getId()) : nullopt;
+        string lastUnacknowledgedMessageIdAsString = lastUnacknowledgedMessageId.has_value() ? uuids::to_string(lastUnacknowledgedMessageId.value()) : "N/A";
+        string information = "Last unacknowledged message ID: [" + lastUnacknowledgedMessageIdAsString + "]\nTrying to send message\n" + messageContent.str();
         this->printInformation(information, cout, ConsoleColors::Color::YELLOW);
     }
 
@@ -105,27 +106,28 @@ bool Entity::sendMessage(Message &message)
 
     if (isConnectedTo(message.getTargetEntityId()))
     {
-        lastUnacknowledgedMessageId = message.getId();
+        this->lastUnacknowledgedMessage->getId() = message.getId();
         return true;
     }
     else if (message.getCode() == Code::SYN)
     {
-        lastUnacknowledgedMessageId = message.getId();
+        this->lastUnacknowledgedMessage->getId() = message.getId();
         return true;
     }
 
     return false;
 }
 
-optional<Message> Entity::receiveMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
+optional<Message> Entity::receiveMessage(const Message &message, shared_ptr<uuids::uuid_random_generator> uuidGenerator)
 {
     if (GenericProtocolConstants::debugInformation)
     {
         ostringstream messageContent;
         message.print([&messageContent](string line)
                       { messageContent << ConsoleColors::tab << line << endl; });
-        string lastUnacknowledgedMessageIdAsString = this->lastUnacknowledgedMessageId.has_value() ? uuids::to_string(this->lastUnacknowledgedMessageId.value()) : "N/A";
-        string information = "Last unacknowledged message ID: [" + lastUnacknowledgedMessageIdAsString + "]\nReceived message\n" + messageContent.str();
+        optional<uuids::uuid> lastUnacknowledgedMessageId = this->lastUnacknowledgedMessage.has_value() ? optional<uuids::uuid>(this->lastUnacknowledgedMessage.value().getId()) : nullopt;
+        string lastUnacknowledgedMessageIdAsString = lastUnacknowledgedMessageId.has_value() ? uuids::to_string(lastUnacknowledgedMessageId.value()) : "N/A";
+        string information = "Last unacknowledged message ID: [" + lastUnacknowledgedMessageIdAsString + "]\nTrying to send message\n" + messageContent.str();
         this->printInformation(information, cout, ConsoleColors::Color::MAGENTA);
     }
 
@@ -155,7 +157,7 @@ optional<Message> Entity::receiveMessage(const Message &message, uuids::uuid_ran
     return nullopt;
 }
 
-optional<Message> Entity::receiveSynMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
+optional<Message> Entity::receiveSynMessage(const Message &message, shared_ptr<uuids::uuid_random_generator> uuidGenerator)
 {
     if (!this->isConnectedTo(message.getSourceEntityId()))
     {
@@ -177,14 +179,14 @@ optional<Message> Entity::receiveSynMessage(const Message &message, uuids::uuid_
     }
 }
 
-optional<Message> Entity::receiveFinMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
+optional<Message> Entity::receiveFinMessage(const Message &message, shared_ptr<uuids::uuid_random_generator> uuidGenerator)
 {
     if (this->isConnectedTo(message.getSourceEntityId()))
         this->connections.erase(message.getSourceEntityId());
     return nullopt;
 }
 
-optional<Message> Entity::receiveAckMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
+optional<Message> Entity::receiveAckMessage(const Message &message, shared_ptr<uuids::uuid_random_generator> uuidGenerator)
 {
     string firstLine = getLineContent(1, message.getContent());
     string secondLine = getLineContent(2, message.getContent());
@@ -195,9 +197,9 @@ optional<Message> Entity::receiveAckMessage(const Message &message, uuids::uuid_
         uuids::uuid sentMessageId = uuidContainer.value();
 
         // Unlock the entity to send a new message
-        if (sentMessageId == this->lastUnacknowledgedMessageId)
+        if (this->lastUnacknowledgedMessage.has_value() && this->lastUnacknowledgedMessage.value().getId() == sentMessageId)
         {
-            this->lastUnacknowledgedMessageId = nullopt;
+            this->lastUnacknowledgedMessage = nullopt;
         }
 
         if (firstLine == "ACK-SYN")
@@ -216,7 +218,7 @@ optional<Message> Entity::receiveAckMessage(const Message &message, uuids::uuid_
     return nullopt;
 }
 
-optional<Message> Entity::receiveAckSynMessage(const Message &message, uuids::uuid sentMessageId, uuids::uuid_random_generator *uuidGenerator)
+optional<Message> Entity::receiveAckSynMessage(const Message &message, uuids::uuid sentMessageId, shared_ptr<uuids::uuid_random_generator> uuidGenerator)
 {
     uuids::uuid synMessageId = sentMessageId;
 
@@ -234,7 +236,7 @@ optional<Message> Entity::receiveAckSynMessage(const Message &message, uuids::uu
     return ackAckSynMessage;
 }
 
-optional<Message> Entity::receiveAckAckSynMessage(const Message &message, uuids::uuid sentMessageId, uuids::uuid_random_generator *uuidGenerator)
+optional<Message> Entity::receiveAckAckSynMessage(const Message &message, uuids::uuid sentMessageId, shared_ptr<uuids::uuid_random_generator> uuidGenerator)
 {
     uuids::uuid ackSynMessageId = sentMessageId;
 
@@ -250,12 +252,12 @@ optional<Message> Entity::receiveAckAckSynMessage(const Message &message, uuids:
     return Message(uuidGenerator, this->id, message.getSourceEntityId(), "NACK-ACK-ACK-SYN\n" + to_string(message.getId()), Code::NACK);
 }
 
-optional<Message> Entity::receiveNackMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
+optional<Message> Entity::receiveNackMessage(const Message &message, shared_ptr<uuids::uuid_random_generator> uuidGenerator)
 {
     return nullopt;
 }
 
-optional<Message> Entity::receiveDataMessage(const Message &message, uuids::uuid_random_generator *uuidGenerator)
+optional<Message> Entity::receiveDataMessage(const Message &message, shared_ptr<uuids::uuid_random_generator> uuidGenerator)
 {
     if (this->isConnectedTo(message.getSourceEntityId()))
     {

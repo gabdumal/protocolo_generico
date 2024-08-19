@@ -5,15 +5,16 @@
 #include <entity.hpp>
 #include <network.hpp>
 #include <uuid.h>
+#include <memory>
 
 class GenericProtocol
 {
 private:
-    static uuids::uuid_random_generator *uuidGenerator;
+    static shared_ptr<uuids::uuid_random_generator> uuidGenerator;
 
 public:
     /* Construction */
-    GenericProtocol(uuids::uuid_random_generator *uuidGenerator);
+    GenericProtocol(shared_ptr<uuids::uuid_random_generator> uuidGenerator);
     ~GenericProtocol();
 
     /* Methods */

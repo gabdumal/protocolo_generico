@@ -25,7 +25,7 @@ string codeToString(Code code)
 
 /* Construction */
 
-Message::Message(uuids::uuid_random_generator *uuidGenerator, uuids::uuid sourceEntityId, uuids::uuid targetEntityId, string content, Code code)
+Message::Message(shared_ptr<uuids::uuid_random_generator> uuidGenerator, uuids::uuid sourceEntityId, uuids::uuid targetEntityId, string content, Code code)
 {
     this->id = (*uuidGenerator)();
     this->sourceEntityId = sourceEntityId;

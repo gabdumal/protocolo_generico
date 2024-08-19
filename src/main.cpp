@@ -1,6 +1,7 @@
 #include <generic_protocol.hpp>
 #include <uuid.h>
 #include <iostream>
+#include <memory>
 
 using namespace std;
 
@@ -15,9 +16,9 @@ int main(int argc, char *argv[])
     std::generate(std::begin(seed_data), std::end(seed_data), std::ref(rd));
     std::seed_seq seq(std::begin(seed_data), std::end(seed_data));
     std::mt19937 generator(seq);
-    uuids::uuid_random_generator uuidGenerator{generator};
+    auto uuidGenerator = std::make_shared<uuids::uuid_random_generator>(generator);
 
-    GenericProtocol genericProtocol(&uuidGenerator);
+    GenericProtocol genericProtocol(uuidGenerator);
     genericProtocol.run();
 
     return 0;

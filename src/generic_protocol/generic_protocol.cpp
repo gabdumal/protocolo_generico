@@ -2,18 +2,75 @@
 #include <constants.hpp>
 #include <iostream>
 #include <queue>
-#include <memory>
 
 using namespace std;
 
-// Define the static UUID Generator
-uuids::uuid_random_generator *GenericProtocol::uuidGenerator = nullptr;
+/* Static members */
+shared_ptr<uuids::uuid_random_generator> GenericProtocol::uuidGenerator;
+
+
+/* Auxiliary */
+
+unique_ptr<Network> createNetwork(ostringstream &outputStream, shared_ptr<uuids::uuid_random_generator> uuidGenerator)
+{
+    outputStream << "Creating network" << endl;
+    cout << outputStream.str();
+    outputStream.str("");
+    unique_ptr<Network> network = Network::createNetwork("Zircônia", uuidGenerator);
+    outputStream << TAB << "Network: " << network->getName() << endl
+                 << endl;
+    cout << outputStream.str();
+    outputStream.str("");
+    return network;
+}
+
+pair<Entity, Entity> createEntities(ostringstream &outputStream)
+{
+    outputStream << "Creating entities" << endl;
+    Entity entityA = GenericProtocol::createEntity("Aroeira",
+                                                   [&outputStream](string message)
+                                                   {
+                                                       outputStream << TAB << message << endl;
+                                                   });
+    outputStream << endl;
+    Entity entityB = GenericProtocol::createEntity("Baobá", [&outputStream](string message)
+                                                   { outputStream << TAB << message << endl; });
+    outputStream << endl;
+    cout << outputStream.str();
+    outputStream.str("");
+    return {entityA, entityB};
+}
+
+void connectEntitiesToNetwork(Network &network, Entity &entityA, Entity &entityB, ostringstream &outputStream)
+{
+    outputStream << "Connecting entities to the network " << network.getName() << endl;
+    network.connectEntity(entityA);
+    outputStream << TAB << "Entity " << entityA.getName() << " [" << entityA.getId() << "] connected to network" << endl;
+    network.connectEntity(entityB);
+    outputStream << TAB << "Entity " << entityB.getName() << " [" << entityB.getId() << "] connected to network" << endl;
+    outputStream << endl;
+    cout << outputStream.str();
+    outputStream.str("");
+}
+
+void printEntitiesStorage(Entity &entityA, Entity &entityB, ostringstream &outputStream)
+{
+    outputStream << "Entities' storage" << endl;
+    outputStream << TAB << entityA.getName() << " [" << entityA.getId() << "]" << endl;
+    entityA.printStorage([&outputStream](string message)
+                         { outputStream << TAB << message << endl; });
+    outputStream << endl;
+    outputStream << TAB << entityB.getName() << " [" << entityB.getId() << "]" << endl;
+    entityB.printStorage([&outputStream](string message)
+                         { outputStream << TAB << message << endl; });
+    cout << outputStream.str();
+}
 
 /* Construction */
 
-GenericProtocol::GenericProtocol(uuids::uuid_random_generator *uuidGenerator)
+GenericProtocol::GenericProtocol(shared_ptr<uuids::uuid_random_generator> uuidGenerator)
 {
-    this->uuidGenerator = uuidGenerator;
+    GenericProtocol::uuidGenerator = uuidGenerator;
 }
 
 GenericProtocol::~GenericProtocol()
@@ -29,41 +86,15 @@ void GenericProtocol::run()
     outputStream << "01. GENERIC PROTOCOL" << endl
                  << endl;
 
-    outputStream << "Creating network" << endl;
-    cout << outputStream.str();
-    outputStream.str("");
-    std::unique_ptr<Network> network = Network::createNetwork("Zircônia", this->uuidGenerator);
-    outputStream << TAB << "Network: " << network->getName() << endl
-                 << endl;
-    cout << outputStream.str();
-    outputStream.str("");
+    unique_ptr<Network> network = createNetwork(outputStream, uuidGenerator);
+    auto [entityA, entityB] = createEntities(outputStream);
+    connectEntitiesToNetwork(*network, entityA, entityB, outputStream);
 
-    outputStream << "Creating entities" << endl;
-    Entity entityA = GenericProtocol::createEntity("Aroeira",
-                                                   [&outputStream](string message)
-                                                   {
-                                                       outputStream << TAB << message << endl;
-                                                   });
-    outputStream << endl;
-    Entity entityB = GenericProtocol::createEntity("Baobá", [&outputStream](string message)
-                                                   { outputStream << TAB << message << endl; });
-    outputStream << endl;
-    cout << outputStream.str();
-    outputStream.str("");
-
-    outputStream << "Connecting entities to the network " << network->getName() << endl;
-    network->connectEntity(entityA);
-    outputStream << TAB << "Entity " << entityA.getName() << " [" << entityA.getId() << "] connected to network" << endl;
-    network->connectEntity(entityB);
-    outputStream << TAB << "Entity " << entityB.getName() << " [" << entityB.getId() << "] connected to network" << endl;
-    outputStream << endl;
-    cout << outputStream.str();
-    outputStream.str("");
-
+    // Establish connection between entities
     GenericProtocol::sendMessage(entityA, entityB, "SYN", Code::SYN, *network, outputStream);
 
-    std::deque<string> contentsDequeue = {
-        "Hello, Baobá!",
+    deque<string> contents = {
+        // "Hello, Baobá!",
         // "Fragment 1",
         // "Fragment 2",
         // "Fragment 3",
@@ -71,27 +102,19 @@ void GenericProtocol::run()
         // "Fragment 5",
         "Fragment 6"};
 
-    for (string content : contentsDequeue)
+    for (string content : contents)
     {
         GenericProtocol::sendMessage(entityA, entityB, content, Code::DATA, *network, outputStream);
     }
 
-    outputStream << "Entities' storage" << endl;
-    outputStream << TAB << entityA.getName() << " [" << entityA.getId() << "]" << endl;
-    entityA.printStorage([&outputStream](string message)
-                         { outputStream << TAB << message << endl; });
-    outputStream << endl;
-    outputStream << TAB << entityB.getName() << " [" << entityB.getId() << "]" << endl;
-    entityB.printStorage([&outputStream](string message)
-                         { outputStream << TAB << message << endl; });
-    cout << outputStream.str();
+    printEntitiesStorage(entityA, entityB, outputStream);
 }
 
 /* Static methods */
 
 Entity GenericProtocol::createEntity(string name, function<void(string)> printMessage)
 {
-    Entity entity = Entity(uuidGenerator, name);
+    Entity entity = Entity(name, uuidGenerator);
     printMessage(entity.getName() + " [" + to_string(entity.getId()) + "]");
     entity.printStorage({[&printMessage](string message)
                          {

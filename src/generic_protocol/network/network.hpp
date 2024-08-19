@@ -19,7 +19,7 @@ using namespace std;
 class Network
 {
 private:
-    uuids::uuid_random_generator *uuidGenerator;
+    shared_ptr<uuids::uuid_random_generator> uuidGenerator;
     string name;
     thread networkThread;
 
@@ -35,7 +35,7 @@ private:
     bool canStopThread;
 
     /* Construction */
-    Network(string name, uuids::uuid_random_generator *uuidGenerator);
+    Network(string name, shared_ptr<uuids::uuid_random_generator> uuidGenerator);
 
     /* Methods */
     void processMessage(Message message);
@@ -56,7 +56,7 @@ public:
     bool receiveMessage(Message message);
 
     /* Static Methods */
-    static unique_ptr<Network> createNetwork(string name, uuids::uuid_random_generator *uuidGenerator);
+    static unique_ptr<Network> createNetwork(string name, shared_ptr<uuids::uuid_random_generator> uuidGenerator);
 };
 
 #endif // _NETWORK_HPP

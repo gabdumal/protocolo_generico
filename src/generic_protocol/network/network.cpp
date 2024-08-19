@@ -7,7 +7,7 @@ using namespace std;
 
 /* Construction */
 
-Network::Network(string name, uuids::uuid_random_generator *uuidGenerator)
+Network::Network(string name, shared_ptr<uuids::uuid_random_generator> uuidGenerator)
 {
     this->uuidGenerator = uuidGenerator;
     this->name = name;
@@ -110,7 +110,7 @@ void Network::processMessage(Message message)
     // Simulate message corruption
     if (rand() % 100 < GenericProtocolConstants::packetCorruptionProbability * 100)
     {
-        this->printInformation("Message " + to_string(message.getId()) + " has been corrupted in the network " + this->getName() + "!", cout, ConsoleColors::Color::YELLOW);
+        this->printInformation("Message [" + to_string(message.getId()) + "] has been corrupted in the network " + this->getName() + "!", cout, ConsoleColors::Color::YELLOW);
         message.setCorrupted(true);
     }
 
@@ -189,7 +189,7 @@ void Network::sendMessage(Message message)
 void Network::printInformation(string information, ostream &outputStream, ConsoleColors::Color color) const
 {
     string header = "Network " + this->getName();
-    ConsoleColors::printInformation(header, information, outputStream, ConsoleColors::Color::BRIGHT_WHITE, ConsoleColors::Color::BLUE, color);
+    ConsoleColors::printInformation(header, information, outputStream, ConsoleColors::Color::WHITE, ConsoleColors::Color::BLUE, color);
 }
 
 void Network::joinThread()
@@ -202,7 +202,7 @@ void Network::joinThread()
 
 /* Static Methods */
 
-unique_ptr<Network> Network::createNetwork(string name, uuids::uuid_random_generator *uuidGenerator)
+unique_ptr<Network> Network::createNetwork(string name, shared_ptr<uuids::uuid_random_generator> uuidGenerator)
 {
     return unique_ptr<Network>(new Network(name, uuidGenerator));
 }
