@@ -12,36 +12,42 @@ Network::Network(string name, uuids::uuid_random_generator *uuidGenerator)
     this->uuidGenerator = uuidGenerator;
     this->name = name;
     this->processingMessagesCount = 0;
-    this->stopThread = false;
-
+    this->canStopThread = false;
     this->networkThread = thread([this]()
                                  {
-       while (true) {
-            unique_lock<mutex> lock(this->messagesMutex);
-             if (stopThread && messages.empty()) {
-                break;
-            }
-            if (!this->messages.empty()) {
-                Message message = this->messages.front();
-                this->messages.pop();
-                lock.unlock();
-                this->processMessage(message);
-            } else {
-                this->messageProcessedCV.wait(lock); // Wait for new messages
-            }
-        } });
+                                     while (true)
+                                     {
+                                         unique_lock<mutex> lock(this->messagesMutex);
+                                         if (this->canStopThread && messages.empty())
+                                         {
+                                             break;
+                                         }
+                                         if (!this->messages.empty())
+                                         {
+                                             Message message = this->messages.front();
+                                             this->messages.pop();
+                                             lock.unlock();
+                                             this->processMessage(message);
+                                             lock.lock();
+                                         }
+                                         else
+                                         {
+                                             this->messageProcessedCV.wait(lock);
+                                         }
+                                     } });
 }
 
 Network::~Network()
 {
     {
         lock_guard<mutex> lock(this->messagesMutex);
-        this->stopThread = true;
+        this->canStopThread = true;
         this->messageProcessedCV.notify_all();
     }
-    if (this->networkThread.joinable())
+    this->joinThread();
+    if (GenericProtocolConstants::debugInformation)
     {
-        this->networkThread.join();
+        this->printInformation("Network " + this->getName() + " has been destroyed!", cout, ConsoleColors::Color::YELLOW);
     }
 }
 
@@ -57,7 +63,7 @@ string Network::getName() const
 void Network::connectEntity(Entity &entity)
 {
     lock_guard<mutex> lock(this->entitiesMutex);
-    this->entities[entity.getId()] = &entity;
+    this->entities[entity.getId()] = make_shared<Entity>(entity);
     this->messageProcessedCV.notify_all();
 }
 
@@ -124,17 +130,16 @@ void Network::processMessage(Message message)
 void Network::sendMessage(Message message)
 {
     lock_guard<mutex> lock(this->entitiesMutex);
-
     auto targetEntityPair = this->entities.find(message.getTargetEntityId());
     if (targetEntityPair != entities.end())
     {
-        Entity *targetEntity = targetEntityPair->second;
+        shared_ptr<Entity> targetEntity = targetEntityPair->second;
         if (targetEntity)
         {
             auto sourceEntityPair = this->entities.find(message.getSourceEntityId());
             if (sourceEntityPair != entities.end())
             {
-                Entity *sourceEntity = sourceEntityPair->second;
+                shared_ptr<Entity> sourceEntity = sourceEntityPair->second;
                 if (sourceEntity)
                 {
                     bool canSendMessage = sourceEntity->sendMessage(message);
@@ -185,4 +190,19 @@ void Network::printInformation(string information, ostream &outputStream, Consol
 {
     string header = "Network " + this->getName();
     ConsoleColors::printInformation(header, information, outputStream, ConsoleColors::Color::BRIGHT_WHITE, ConsoleColors::Color::BLUE, color);
+}
+
+void Network::joinThread()
+{
+    if (this->networkThread.joinable())
+    {
+        this->networkThread.join();
+    }
+}
+
+/* Static Methods */
+
+unique_ptr<Network> Network::createNetwork(string name, uuids::uuid_random_generator *uuidGenerator)
+{
+    return unique_ptr<Network>(new Network(name, uuidGenerator));
 }

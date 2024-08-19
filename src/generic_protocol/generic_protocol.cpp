@@ -2,6 +2,7 @@
 #include <constants.hpp>
 #include <iostream>
 #include <queue>
+#include <memory>
 
 using namespace std;
 
@@ -31,8 +32,8 @@ void GenericProtocol::run()
     outputStream << "Creating network" << endl;
     cout << outputStream.str();
     outputStream.str("");
-    Network network = Network("Zircônia", this->uuidGenerator);
-    outputStream << TAB << "Network: " << network.getName() << endl
+    std::unique_ptr<Network> network = Network::createNetwork("Zircônia", this->uuidGenerator);
+    outputStream << TAB << "Network: " << network->getName() << endl
                  << endl;
     cout << outputStream.str();
     outputStream.str("");
@@ -50,16 +51,16 @@ void GenericProtocol::run()
     cout << outputStream.str();
     outputStream.str("");
 
-    outputStream << "Connecting entities to the network " << network.getName() << endl;
-    network.connectEntity(entityA);
+    outputStream << "Connecting entities to the network " << network->getName() << endl;
+    network->connectEntity(entityA);
     outputStream << TAB << "Entity " << entityA.getName() << " [" << entityA.getId() << "] connected to network" << endl;
-    network.connectEntity(entityB);
+    network->connectEntity(entityB);
     outputStream << TAB << "Entity " << entityB.getName() << " [" << entityB.getId() << "] connected to network" << endl;
     outputStream << endl;
     cout << outputStream.str();
     outputStream.str("");
 
-    GenericProtocol::sendMessage(entityA, entityB, "SYN", Code::SYN, network, outputStream);
+    GenericProtocol::sendMessage(entityA, entityB, "SYN", Code::SYN, *network, outputStream);
 
     std::deque<string> contentsDequeue = {
         "Hello, Baobá!",
@@ -72,11 +73,8 @@ void GenericProtocol::run()
 
     for (string content : contentsDequeue)
     {
-        GenericProtocol::sendMessage(entityA, entityB, content, Code::DATA, network, outputStream);
+        GenericProtocol::sendMessage(entityA, entityB, content, Code::DATA, *network, outputStream);
     }
-
-    chrono::milliseconds timeSpan(rand() % 10000);
-    this_thread::sleep_for(timeSpan);
 
     outputStream << "Entities' storage" << endl;
     outputStream << TAB << entityA.getName() << " [" << entityA.getId() << "]" << endl;

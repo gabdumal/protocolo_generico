@@ -12,6 +12,7 @@
 #include <mutex>
 #include <future>
 #include <condition_variable>
+#include <memory>
 
 using namespace std;
 
@@ -22,7 +23,7 @@ private:
     string name;
     thread networkThread;
 
-    unordered_map<uuids::uuid, Entity *>
+    unordered_map<uuids::uuid, shared_ptr<Entity>>
         entities;
     mutex entitiesMutex;
 
@@ -31,16 +32,19 @@ private:
 
     condition_variable messageProcessedCV;
     int processingMessagesCount;
-    bool stopThread;
+    bool canStopThread;
+
+    /* Construction */
+    Network(string name, uuids::uuid_random_generator *uuidGenerator);
 
     /* Methods */
     void processMessage(Message message);
     void sendMessage(Message message);
     void printInformation(string information, ostream &outputStream, ConsoleColors::Color color = ConsoleColors::Color::DEFAULT) const;
+    void joinThread();
 
 public:
-    /* Construction */
-    Network(string name, uuids::uuid_random_generator *uuidGenerator);
+    /* Destruction */
     ~Network();
 
     /* Getters */
@@ -50,6 +54,9 @@ public:
     void connectEntity(Entity &entity);
     void disconnectEntity(uuids::uuid entityId);
     bool receiveMessage(Message message);
+
+    /* Static Methods */
+    static unique_ptr<Network> createNetwork(string name, uuids::uuid_random_generator *uuidGenerator);
 };
 
 #endif // _NETWORK_HPP
