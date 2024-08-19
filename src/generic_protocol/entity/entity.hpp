@@ -11,6 +11,7 @@
 #include <memory>
 #include <chrono>
 #include <thread>
+#include <mutex>
 
 using namespace std;
 
@@ -27,13 +28,22 @@ private:
     uuids::uuid id;
     string name;
     string storage;
+
     unordered_map<uuids::uuid, shared_ptr<Connection>> connections;
     optional<Message> lastUnacknowledgedMessage;
+
+    chrono::milliseconds timeoutDuration;
+    thread timerThread;
+    mutex mtx;
 
     /* Methods */
     void printInformation(string information, ostream &outputStream, ConsoleColors::Color color = ConsoleColors::Color::DEFAULT) const;
     bool isConnectedTo(uuids::uuid entityId) const;
     bool canReceiveDataFrom(uuids::uuid entityId) const;
+    void startTimer();
+    void resetTimer();
+    void resendMessage();
+
     optional<Message> receiveSynMessage(const Message &message, shared_ptr<uuids::uuid_random_generator> uuidGenerator);
     optional<Message> receiveFinMessage(const Message &message, shared_ptr<uuids::uuid_random_generator> uuidGenerator);
     optional<Message> receiveAckMessage(const Message &message, shared_ptr<uuids::uuid_random_generator> uuidGenerator);

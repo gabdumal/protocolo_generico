@@ -25,9 +25,16 @@ Entity::Entity(string name, shared_ptr<uuids::uuid_random_generator> uuidGenerat
     this->storage = "";
     this->connections = unordered_map<uuids::uuid, shared_ptr<Connection>>();
     this->lastUnacknowledgedMessage = nullopt;
+    this->timeoutDuration = chrono::milliseconds(GenericProtocolConstants::resendTimeout);
 }
 
-Entity::~Entity() {}
+Entity::~Entity()
+{
+    if (this->timerThread.joinable())
+    {
+        this->timerThread.join();
+    }
+}
 
 /* Getters */
 
@@ -106,12 +113,12 @@ bool Entity::sendMessage(Message &message)
 
     if (isConnectedTo(message.getTargetEntityId()))
     {
-        this->lastUnacknowledgedMessage->getId() = message.getId();
+        this->lastUnacknowledgedMessage = message;
         return true;
     }
     else if (message.getCode() == Code::SYN)
     {
-        this->lastUnacknowledgedMessage->getId() = message.getId();
+        this->lastUnacknowledgedMessage = message;
         return true;
     }
 

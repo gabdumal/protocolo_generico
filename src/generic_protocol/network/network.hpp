@@ -51,7 +51,7 @@ public:
     string getName() const;
 
     /* Methods */
-    void connectEntity(Entity &entity);
+    void connectEntity(shared_ptr<Entity> entity);
     void disconnectEntity(uuids::uuid entityId);
     bool receiveMessage(Message message);
 

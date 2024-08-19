@@ -60,10 +60,10 @@ string Network::getName() const
 
 /* Methods */
 
-void Network::connectEntity(Entity &entity)
+void Network::connectEntity(shared_ptr<Entity> entity)
 {
     lock_guard<mutex> lock(this->entitiesMutex);
-    this->entities[entity.getId()] = make_shared<Entity>(entity);
+    this->entities[entity->getId()] = entity;
     this->messageProcessedCV.notify_all();
 }
 
