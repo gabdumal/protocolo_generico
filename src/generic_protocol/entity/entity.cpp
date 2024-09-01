@@ -6,17 +6,6 @@
 
 using namespace std;
 
-/* Auxiliary */
-
-string getLineContent(int line, string content) {
-    istringstream content_stream(content);
-    string line_content;
-    for (int i = 0; i < line; i++) {
-        getline(content_stream, line_content);
-    }
-    return line_content;
-}
-
 /* Construction */
 
 Entity::Entity(string name,
@@ -110,7 +99,7 @@ bool Entity::sendMessage(Message &message) {
     if (isConnectedTo(message.getTargetEntityId())) {
         this->last_unacknowledged_message = message;
         return true;
-    } else if (message.getCode() == Code::SYN) {
+    } else if (message.getCode() == Message::Code::SYN) {
         this->last_unacknowledged_message = message;
         return true;
     }
@@ -148,23 +137,24 @@ optional<Message> Entity::receiveMessage(
 
     if (message.isCorrupted()) {
         return Message(uuid_generator, this->id, message.getSourceEntityId(),
-                       "NACK\n" + to_string(message.getId()), Code::NACK);
+                       "NACK\n" + to_string(message.getId()),
+                       Message::Code::NACK);
     }
 
     switch (message.getCode()) {
-        case Code::SYN:
+        case Message::Code::SYN:
             return this->receiveSynMessage(message, uuid_generator);
 
-        case Code::FIN:
+        case Message::Code::FIN:
             return this->receiveFinMessage(message, uuid_generator);
 
-        case Code::ACK:
+        case Message::Code::ACK:
             return this->receiveAckMessage(message, uuid_generator);
 
-        case Code::NACK:
+        case Message::Code::NACK:
             return this->receiveNackMessage(message, uuid_generator);
 
-        case Code::DATA:
+        case Message::Code::DATA:
             return this->receiveDataMessage(message, uuid_generator);
     }
 
@@ -177,7 +167,7 @@ optional<Message> Entity::receiveSynMessage(
     if (!this->isConnectedTo(message.getSourceEntityId())) {
         Message ack_syn_message(
             uuid_generator, this->id, message.getSourceEntityId(),
-            "ACK-SYN\n" + to_string(message.getId()), Code::ACK);
+            "ACK-SYN\n" + to_string(message.getId()), Message::Code::ACK);
 
         // Still need to receive the ACK-ACK-SYN message
         auto connection = make_shared<Connection>(
@@ -188,7 +178,8 @@ optional<Message> Entity::receiveSynMessage(
         return ack_syn_message;
     } else {
         return Message(uuid_generator, this->id, message.getSourceEntityId(),
-                       "NACK-SYN\n" + to_string(message.getId()), Code::NACK);
+                       "NACK-SYN\n" + to_string(message.getId()),
+                       Message::Code::NACK);
     }
 }
 
@@ -203,11 +194,9 @@ optional<Message> Entity::receiveFinMessage(
 optional<Message> Entity::receiveAckMessage(
     const Message &message,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    string first_line = getLineContent(1, message.getContent());
-    string second_line = getLineContent(2, message.getContent());
+    string first_line = Util::getLineContent(1, message.getContent());
+    auto uuid_container = message.getIdFromMessageBeingAcknowledged();
 
-    optional<uuids::uuid> uuid_container =
-        uuids::uuid::from_string(second_line);
     if (uuid_container.has_value()) {
         uuids::uuid sent_message_id = uuid_container.value();
 
@@ -226,13 +215,15 @@ optional<Message> Entity::receiveAckMessage(
                                                  uuid_generator);
     } else {
         if (first_line == "ACK-SYN")
-            return Message(
-                uuid_generator, this->id, message.getSourceEntityId(),
-                "NACK-ACK-SYN\n" + to_string(message.getId()), Code::NACK);
+            return Message(uuid_generator, this->id,
+                           message.getSourceEntityId(),
+                           "NACK-ACK-SYN\n" + to_string(message.getId()),
+                           Message::Code::NACK);
         else if (first_line == "ACK-ACK-SYN")
-            return Message(
-                uuid_generator, this->id, message.getSourceEntityId(),
-                "NACK-ACK-ACK-SYN\n" + to_string(message.getId()), Code::NACK);
+            return Message(uuid_generator, this->id,
+                           message.getSourceEntityId(),
+                           "NACK-ACK-ACK-SYN\n" + to_string(message.getId()),
+                           Message::Code::NACK);
     }
 
     return nullopt;
@@ -245,7 +236,7 @@ optional<Message> Entity::receiveAckSynMessage(
 
     Message ack_ack_syn_message(
         uuid_generator, this->id, message.getSourceEntityId(),
-        "ACK-ACK-SYN\n" + to_string(message.getId()), Code::ACK);
+        "ACK-ACK-SYN\n" + to_string(message.getId()), Message::Code::ACK);
 
     auto connection = make_shared<Connection>(Connection{
         syn_message_id,
@@ -275,7 +266,7 @@ optional<Message> Entity::receiveAckAckSynMessage(
 
     return Message(uuid_generator, this->id, message.getSourceEntityId(),
                    "NACK-ACK-ACK-SYN\n" + to_string(message.getId()),
-                   Code::NACK);
+                   Message::Code::NACK);
 }
 
 optional<Message> Entity::receiveNackMessage(
@@ -291,9 +282,10 @@ optional<Message> Entity::receiveDataMessage(
         this->storage += message.getContent() + "\n";
 
         return Message(uuid_generator, this->id, message.getSourceEntityId(),
-                       "ACK\n" + to_string(message.getId()), Code::ACK);
+                       "ACK\n" + to_string(message.getId()),
+                       Message::Code::ACK);
     }
 
     return Message(uuid_generator, this->id, message.getSourceEntityId(),
-                   "NACK\n" + to_string(message.getId()), Code::NACK);
+                   "NACK\n" + to_string(message.getId()), Message::Code::NACK);
 }

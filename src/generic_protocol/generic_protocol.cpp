@@ -101,21 +101,21 @@ void GenericProtocol::run() {
     connectEntitiesToNetwork(*network, entity_a, entity_b, output_stream);
 
     // Establish connection between entities
-    GenericProtocol::sendMessage(entity_a, entity_b, "SYN", Code::SYN, *network,
-                                 output_stream);
+    GenericProtocol::sendMessage(entity_a, entity_b, "SYN", Message::Code::SYN,
+                                 *network, output_stream);
 
-    deque<string> contents = {// "Hello, Baobá!",
-                              // "Fragment 1",
-                              // "Fragment 2",
-                              // "Fragment 3",
-                              // "Fragment 4",
-                              // "Fragment 5",
-                              "Fragment 6"};
+    // deque<string> contents = {// "Hello, Baobá!",
+    //                           // "Fragment 1",
+    //                           // "Fragment 2",
+    //                           // "Fragment 3",
+    //                           // "Fragment 4",
+    //                           // "Fragment 5",
+    //                           "Fragment 6"};
 
     // for (string content : contents)
     // {
-    //     GenericProtocol::sendMessage(entity_a, entity_b, content, Code::DATA,
-    //     *network, output_stream);
+    //     GenericProtocol::sendMessage(entity_a, entity_b, content,
+    //     Message::Code::DATA, *network, output_stream);
     // }
 
     printEntitiesStorage(entity_a, entity_b, output_stream);
@@ -135,8 +135,8 @@ shared_ptr<Entity> GenericProtocol::createEntity(
 
 void GenericProtocol::sendMessage(shared_ptr<Entity> source,
                                   shared_ptr<Entity> target,
-                                  string message_content, Code message_code,
-                                  Network &network,
+                                  string message_content,
+                                  Message::Code message_code, Network &network,
                                   ostringstream &output_stream) {
     Message message = Message(uuid_generator, source->getId(), target->getId(),
                               message_content, message_code);
@@ -151,7 +151,7 @@ void GenericProtocol::sendMessage(shared_ptr<Entity> source,
 void GenericProtocol::printSendingMessageHeader(shared_ptr<Entity> source,
                                                 shared_ptr<Entity> target,
                                                 string message_content,
-                                                Code message_code,
+                                                Message::Code message_code,
                                                 Network &network,
                                                 ostringstream &output_stream) {
     output_stream << "Sending message" << endl;

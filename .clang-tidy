@@ -6,7 +6,7 @@ CheckOptions:
   - key: readability-identifier-naming.MacroDefinitionPrefix
     value: "_"
   - key: readability-identifier-naming.MacroDefinitionIgnoredRegexp
-  value: "^[A-Z]+(_[A-Z]+)*_$"
+    value: "^[A-Z]+(_[A-Z]+)*_$"
 
   # Default
   - key: readability-identifier-naming.VariableCase

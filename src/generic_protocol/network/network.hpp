@@ -29,7 +29,9 @@ class Network {
             : message(message),
               last_attempt_time(chrono::system_clock::now()),
               remaining_attempts(
-                  GenericProtocolConstants::max_attempts_to_send_message) {}
+                  GenericProtocolConstants::max_attempts_to_send_message - 1) {
+        }  // Subtract 1 because the first attempt is done instantly, so the
+           // sendingThreadJob should not execute another attempt for it
     };
 
     shared_ptr<uuids::uuid_random_generator> uuid_generator;
@@ -65,8 +67,10 @@ class Network {
     void registerMessageSending(Message message);
     void sendingThreadJob();
     void joinSendingThread();
+    void processResponseMessage(Message message);
+    void removeMessageFromUnconfirmedMessages(uuids::uuid message_id);
 
-    bool preprocessMessage(Message message);
+    bool preprocessMessage(Message message, int attempt = 1);
     bool hasPackageBeenLost(uuids::uuid message_id);
     bool insertMessageIntoProcessingQueue(Message message);
 

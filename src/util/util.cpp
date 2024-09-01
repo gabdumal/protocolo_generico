@@ -23,3 +23,12 @@ void Util::printInformation(string header, string information,
 
     output_stream << intermediate_stream.str();
 }
+
+string Util::getLineContent(int line, string content) {
+    istringstream content_stream(content);
+    string line_content;
+    for (int i = 0; i < line; i++) {
+        getline(content_stream, line_content);
+    }
+    return line_content;
+}

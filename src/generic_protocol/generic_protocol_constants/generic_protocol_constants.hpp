@@ -14,6 +14,7 @@ namespace GenericProtocolConstants {
 
     constexpr int max_attempts_to_send_message = 3;
     static constexpr auto resend_timeout = chrono::seconds(5);
+    constexpr int interval_to_check_unconfirmed_messages = 100;
 }  // namespace GenericProtocolConstants
 
 #endif  // _GENERIC_PROTOCOL_CONSTANTS_HPP

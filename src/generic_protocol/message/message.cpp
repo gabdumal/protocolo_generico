@@ -1,20 +1,22 @@
 #include <message.hpp>
 #include <sstream>
 
+#include "util.hpp"
+
 using namespace std;
 
 /* Auxiliary */
-string codeToString(Code code) {
+string codeToString(Message::Code code) {
     switch (code) {
-        case Code::SYN:
+        case Message::Code::SYN:
             return "SYN";
-        case Code::FIN:
+        case Message::Code::FIN:
             return "FIN";
-        case Code::ACK:
+        case Message::Code::ACK:
             return "ACK";
-        case Code::NACK:
+        case Message::Code::NACK:
             return "NACK";
-        case Code::DATA:
+        case Message::Code::DATA:
             return "DATA";
         default:
             return "UNKNOWN";
@@ -25,7 +27,7 @@ string codeToString(Code code) {
 
 Message::Message(shared_ptr<uuids::uuid_random_generator> uuid_generator,
                  uuids::uuid source_entity_id, uuids::uuid target_entity_id,
-                 string content, Code code) {
+                 string content, Message::Code code) {
     this->id = (*uuid_generator)();
     this->source_entity_id = source_entity_id;
     this->target_entity_id = target_entity_id;
@@ -52,7 +54,7 @@ string Message::getContent() const { return this->content; }
 
 bool Message::isCorrupted() const { return this->corrupted; }
 
-Code Message::getCode() const { return this->code; }
+Message::Code Message::getCode() const { return this->code; }
 
 /* Setters */
 
@@ -78,4 +80,12 @@ void Message::print(std::function<void(std::string)> print_message) const {
         print_message(line);
     }
     print_message("==== END ====");
+}
+
+optional<uuids::uuid> Message::getIdFromMessageBeingAcknowledged() const {
+    if (this->code == Message::Code::ACK) {
+        string content = Util::getLineContent(2, this->content);
+        return uuids::uuid::from_string(content);
+    }
+    return nullopt;
 }

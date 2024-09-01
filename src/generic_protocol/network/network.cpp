@@ -4,6 +4,7 @@
 #include <iostream>
 #include <pretty_console.hpp>
 
+#include "message.hpp"
 #include "util.hpp"
 
 using namespace std;
@@ -71,7 +72,15 @@ bool Network::receiveMessage(Message message) {
     return this->preprocessMessage(message);
 }
 
-bool Network::preprocessMessage(Message message) {
+bool Network::preprocessMessage(Message message, int attempt) {
+    if (GenericProtocolConstants::debug_information) {
+        this->printInformation(
+            "Attempt [" + to_string(attempt) + "] to send message [" +
+                to_string(message.getId()) + "] to the target [" +
+                to_string(message.getTargetEntityId()) + "]",
+            cout, PrettyConsole::Color::YELLOW);
+    }
+
     if (this->hasPackageBeenLost(message.getId())) return false;
     return this->insertMessageIntoProcessingQueue(message);
 }
@@ -115,8 +124,8 @@ void Network::sendMessage(Message message) {
                     } else {
                         if (GenericProtocolConstants::debug_information) {
                             this->printInformation(
-                                "Message " + to_string(message.getId()) +
-                                    " has been sent to the target entity " +
+                                "Message [" + to_string(message.getId()) +
+                                    "] has been sent to the target entity " +
                                     target_entity->getName() + " [" +
                                     to_string(target_entity->getId()) + "]!",
                                 cout, PrettyConsole::Color::GREEN);
@@ -127,6 +136,8 @@ void Network::sendMessage(Message message) {
                                                           this->uuid_generator);
 
                         if (returned_message) {
+                            this->processResponseMessage(
+                                returned_message.value());
                             this->receiveMessage(returned_message.value());
                         }
                     }
@@ -209,10 +220,10 @@ bool Network::hasPackageBeenLost(uuids::uuid message_id) {
     if (rand() % 100 <
         GenericProtocolConstants::packet_loss_probability * 100) {
         if (GenericProtocolConstants::debug_information) {
-            this->printInformation("Message " + to_string(message_id) +
-                                       " has been lost in the network " +
+            this->printInformation("Message [" + to_string(message_id) +
+                                       "] has been lost in the network " +
                                        this->getName() + "!",
-                                   cout, PrettyConsole::Color::YELLOW);
+                                   cout, PrettyConsole::Color::RED);
         }
         return true;
     }
@@ -231,7 +242,7 @@ void Network::simulatePacketCorruption(Message &message) {
         this->printInformation("Message [" + to_string(message.getId()) +
                                    "] has been corrupted in the network " +
                                    this->getName() + "!",
-                               cout, PrettyConsole::Color::YELLOW);
+                               cout, PrettyConsole::Color::RED);
         message.setCorrupted(true);
     }
 }
@@ -246,6 +257,35 @@ void Network::printInformation(string information, ostream &output_stream,
         color, PrettyConsole::Color::DEFAULT, PrettyConsole::Format::NONE};
     Util::printInformation(header, information, output_stream,
                            header_decoration, information_decoration);
+}
+
+void Network::processResponseMessage(Message message) {
+    if (GenericProtocolConstants::debug_information) {
+        this->printInformation(
+            "Response message [" + to_string(message.getId()) +
+                "] has been received in the network " + this->getName() + "!",
+            cout, PrettyConsole::Color::GREEN);
+    }
+
+    auto id_from_message_being_acknowledged =
+        message.getIdFromMessageBeingAcknowledged();
+    if (id_from_message_being_acknowledged)
+        this->removeMessageFromUnconfirmedMessages(
+            id_from_message_being_acknowledged.value());
+}
+
+void Network::removeMessageFromUnconfirmedMessages(uuids::uuid message_id) {
+    lock_guard<mutex> lock(this->unconfirmed_messages_mutex);
+    auto it = this->unconfirmed_messages.find(message_id);
+
+    if (it != this->unconfirmed_messages.end()) {
+        if (GenericProtocolConstants::debug_information) {
+            this->printInformation(
+                "Message [" + to_string(message_id) + "] has been confirmed!",
+                cout, PrettyConsole::Color::GREEN);
+        }
+        this->unconfirmed_messages.erase(it);
+    }
 }
 
 /* Thread jobs */
@@ -273,17 +313,20 @@ void Network::sendingThreadJob() {
                         chrono::system_clock::now();
                     message_sending.remaining_attempts--;
                     lock.unlock();
-                    this->sendMessage(message_sending.message);
+                    this->preprocessMessage(
+                        message_sending.message,
+                        GenericProtocolConstants::max_attempts_to_send_message -
+                            message_sending.remaining_attempts);
                     lock.lock();
                 } else {
                     // Finished attempts to send the message
                     if (GenericProtocolConstants::debug_information) {
                         this->printInformation(
-                            "Message " +
+                            "Message [" +
                                 to_string(message_sending.message.getId()) +
-                                " has been removed from the network " +
+                                "] has been removed from the network " +
                                 this->getName() + "!",
-                            cout, PrettyConsole::Color::YELLOW);
+                            cout, PrettyConsole::Color::RED);
                     }
                     it = this->unconfirmed_messages.erase(it);
                 }
@@ -294,7 +337,8 @@ void Network::sendingThreadJob() {
 
         // Wait for a message to send
         lock.unlock();
-        this_thread::sleep_for(chrono::milliseconds(100));
+        this_thread::sleep_for(chrono::milliseconds(
+            GenericProtocolConstants::interval_to_check_unconfirmed_messages));
     }
 }
 

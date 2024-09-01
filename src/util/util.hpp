@@ -14,6 +14,8 @@ namespace Util {
                               PrettyConsole::Decoration(),
                           PrettyConsole::Decoration information_decoration =
                               PrettyConsole::Decoration());
-}
+
+    string getLineContent(int line, string content);
+}  // namespace Util
 
 #endif  // UTIL_HPP_
