@@ -39,6 +39,13 @@ class Network {
     mutex entities_mutex;
 
     map<uuids::uuid, MessageSending> unconfirmed_messages;
+    mutex unconfirmed_messages_mutex;
+
+    thread message_sending_thread;
+    int sending_messages_count;
+    condition_variable message_sent_cv;  // Condition variable to notify when a
+                                         // message has been sent
+    bool can_stop_sending_thread;
 
     queue<Message> messages_to_process;
     mutex messages_to_process_mutex;
@@ -56,18 +63,21 @@ class Network {
 
     /* Methods */
     void registerMessageSending(Message message);
+    void sendingThreadJob();
+    void joinSendingThread();
 
     bool preprocessMessage(Message message);
     bool hasPackageBeenLost(uuids::uuid message_id);
     bool insertMessageIntoProcessingQueue(Message message);
 
+    void processingThreadJob();
     void processMessage(Message message);
     void simulateNetworkLatency();
     void simulatePacketCorruption(Message &message);
+    void joinProcessingThread();
 
     void sendMessage(Message message);
     void finishMessageProcessing();
-    void joinThread();
 
     void printInformation(
         string information, ostream &output_stream,

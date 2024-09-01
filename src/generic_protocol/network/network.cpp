@@ -14,35 +14,31 @@ Network::Network(string name,
                  shared_ptr<uuids::uuid_random_generator> uuid_generator) {
     this->uuid_generator = uuid_generator;
     this->name = name;
+
+    this->sending_messages_count = 0;
+    this->can_stop_sending_thread = false;
+    this->message_sending_thread =
+        thread([this]() { this->sendingThreadJob(); });
+
     this->processing_messages_count = 0;
     this->can_stop_processing_thread = false;
-    this->processing_messages_thread = thread([this]() {
-        while (true) {
-            unique_lock<mutex> lock(this->messages_to_process_mutex);
-            if (this->can_stop_processing_thread &&
-                messages_to_process.empty()) {
-                break;
-            }
-            if (!this->messages_to_process.empty()) {
-                Message message = this->messages_to_process.front();
-                this->messages_to_process.pop();
-                lock.unlock();
-                this->processMessage(message);
-                lock.lock();
-            } else {
-                this->message_processed_cv.wait(lock);
-            }
-        }
-    });
+    this->processing_messages_thread =
+        thread([this]() { this->processingThreadJob(); });
 }
 
 Network::~Network() {
+    {
+        lock_guard<mutex> lock(this->unconfirmed_messages_mutex);
+        this->can_stop_sending_thread = true;
+        this->message_sent_cv.notify_all();
+    }
+    this->joinSendingThread();
     {
         lock_guard<mutex> lock(this->messages_to_process_mutex);
         this->can_stop_processing_thread = true;
         this->message_processed_cv.notify_all();
     }
-    this->joinThread();
+    this->joinProcessingThread();
     if (GenericProtocolConstants::debug_information) {
         this->printInformation(
             "Network " + this->getName() + " has been destroyed!", cout,
@@ -191,7 +187,13 @@ bool Network::insertMessageIntoProcessingQueue(Message message) {
     }
 }
 
-void Network::joinThread() {
+void Network::joinSendingThread() {
+    if (this->message_sending_thread.joinable()) {
+        this->message_sending_thread.join();
+    }
+}
+
+void Network::joinProcessingThread() {
     if (this->processing_messages_thread.joinable()) {
         this->processing_messages_thread.join();
     }
@@ -244,6 +246,78 @@ void Network::printInformation(string information, ostream &output_stream,
         color, PrettyConsole::Color::DEFAULT, PrettyConsole::Format::NONE};
     Util::printInformation(header, information, output_stream,
                            header_decoration, information_decoration);
+}
+
+/* Thread jobs */
+
+void Network::sendingThreadJob() {
+    while (true) {
+        unique_lock<mutex> lock(this->unconfirmed_messages_mutex);
+
+        // Finish job if there are no messages to send
+        if (this->can_stop_sending_thread && unconfirmed_messages.empty()) {
+            break;
+        }
+
+        for (auto it = this->unconfirmed_messages.begin();
+             it != this->unconfirmed_messages.end();) {
+            MessageSending &message_sending = it->second;
+
+            // Check if the timeout has expired
+            if (chrono::system_clock::now() -
+                    message_sending.last_attempt_time >
+                GenericProtocolConstants::resend_timeout) {
+                // Check if the message has remaining attempts
+                if (message_sending.remaining_attempts > 0) {
+                    message_sending.last_attempt_time =
+                        chrono::system_clock::now();
+                    message_sending.remaining_attempts--;
+                    lock.unlock();
+                    this->sendMessage(message_sending.message);
+                    lock.lock();
+                } else {
+                    // Finished attempts to send the message
+                    if (GenericProtocolConstants::debug_information) {
+                        this->printInformation(
+                            "Message " +
+                                to_string(message_sending.message.getId()) +
+                                " has been removed from the network " +
+                                this->getName() + "!",
+                            cout, PrettyConsole::Color::YELLOW);
+                    }
+                    it = this->unconfirmed_messages.erase(it);
+                }
+            } else {
+                it++;
+            }
+        }
+
+        // Wait for a message to send
+        lock.unlock();
+        this_thread::sleep_for(chrono::milliseconds(100));
+    }
+}
+
+void Network::processingThreadJob() {
+    while (true) {
+        unique_lock<mutex> lock(this->messages_to_process_mutex);
+
+        // Finish job if there are no messages to process
+        if (this->can_stop_processing_thread && messages_to_process.empty()) {
+            break;
+        }
+
+        if (!this->messages_to_process.empty()) {
+            Message message = this->messages_to_process.front();
+            this->messages_to_process.pop();
+            lock.unlock();
+            this->processMessage(message);
+            lock.lock();
+        } else {
+            // Wait for a message to process
+            this->message_processed_cv.wait(lock);
+        }
+    }
 }
 
 /* Static Methods */
