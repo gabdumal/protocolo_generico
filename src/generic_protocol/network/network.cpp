@@ -2,6 +2,7 @@
 
 #include <generic_protocol_constants.hpp>
 #include <iostream>
+#include <optional>
 #include <pretty_console.hpp>
 
 #include "message.hpp"
@@ -28,18 +29,7 @@ Network::Network(string name,
 }
 
 Network::~Network() {
-    {
-        lock_guard<mutex> lock(this->unconfirmed_messages_mutex);
-        this->can_stop_sending_thread = true;
-        this->message_sent_cv.notify_all();
-    }
-    this->joinSendingThread();
-    {
-        lock_guard<mutex> lock(this->messages_to_process_mutex);
-        this->can_stop_processing_thread = true;
-        this->message_processed_cv.notify_all();
-    }
-    this->joinProcessingThread();
+    this->joinThreads();
     if (GenericProtocolConstants::debug_information) {
         this->printInformation(
             "Network " + this->getName() + " has been destroyed!", cout,
@@ -131,13 +121,23 @@ void Network::sendMessage(Message message) {
                                 cout, PrettyConsole::Color::GREEN);
                         }
 
-                        optional<Message> returned_message =
+                        Entity::Response response =
                             target_entity->receiveMessage(message,
                                                           this->uuid_generator);
 
+                        this->tryToConfirmSomeMessage(
+                            response.id_from_message_possibly_acknowledged);
+
+                        optional<Message> returned_message = response.message;
                         if (returned_message) {
-                            this->processResponseMessage(
-                                returned_message.value());
+                            if (GenericProtocolConstants::debug_information) {
+                                this->printInformation(
+                                    "Response message [" +
+                                        to_string(message.getId()) +
+                                        "] has been received in the network " +
+                                        this->getName() + "!",
+                                    cout, PrettyConsole::Color::GREEN);
+                            }
                             this->receiveMessage(returned_message.value());
                         }
                     }
@@ -210,6 +210,21 @@ void Network::joinProcessingThread() {
     }
 }
 
+void Network::joinThreads() {
+    {
+        lock_guard<mutex> lock(this->unconfirmed_messages_mutex);
+        this->can_stop_sending_thread = true;
+        this->message_sent_cv.notify_all();
+    }
+    this->joinSendingThread();
+    {
+        lock_guard<mutex> lock(this->messages_to_process_mutex);
+        this->can_stop_processing_thread = true;
+        this->message_processed_cv.notify_all();
+    }
+    this->joinProcessingThread();
+}
+
 void Network::registerMessageSending(Message message) {
     lock_guard<mutex> lock(this->messages_to_process_mutex);
     this->unconfirmed_messages.insert(
@@ -259,19 +274,11 @@ void Network::printInformation(string information, ostream &output_stream,
                            header_decoration, information_decoration);
 }
 
-void Network::processResponseMessage(Message message) {
-    if (GenericProtocolConstants::debug_information) {
-        this->printInformation(
-            "Response message [" + to_string(message.getId()) +
-                "] has been received in the network " + this->getName() + "!",
-            cout, PrettyConsole::Color::GREEN);
-    }
-
-    auto id_from_message_being_acknowledged =
-        message.getIdFromMessageBeingAcknowledged();
-    if (id_from_message_being_acknowledged)
+void Network::tryToConfirmSomeMessage(
+    optional<uuids::uuid> id_from_message_possibly_acknowledged) {
+    if (id_from_message_possibly_acknowledged)
         this->removeMessageFromUnconfirmedMessages(
-            id_from_message_being_acknowledged.value());
+            id_from_message_possibly_acknowledged.value());
 }
 
 void Network::removeMessageFromUnconfirmedMessages(uuids::uuid message_id) {

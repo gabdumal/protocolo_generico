@@ -8,6 +8,7 @@
 #include <memory>
 #include <message.hpp>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <string>
 #include <thread>
@@ -67,7 +68,8 @@ class Network {
     void registerMessageSending(Message message);
     void sendingThreadJob();
     void joinSendingThread();
-    void processResponseMessage(Message message);
+    void tryToConfirmSomeMessage(
+        optional<uuids::uuid> id_from_message_possibly_acknowledged);
     void removeMessageFromUnconfirmedMessages(uuids::uuid message_id);
 
     bool preprocessMessage(Message message, int attempt = 1);
@@ -98,6 +100,7 @@ class Network {
     void connectEntity(shared_ptr<Entity> entity);
     void disconnectEntity(uuids::uuid entity_id);
     bool receiveMessage(Message message);
+    void joinThreads();
 
     /* Static Methods */
     static unique_ptr<Network> createNetwork(

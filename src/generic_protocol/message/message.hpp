@@ -25,13 +25,6 @@ class Message {
     Message(shared_ptr<uuids::uuid_random_generator> uuid_generator,
             uuids::uuid source_entity_id, uuids::uuid target_entity_id,
             string content, Code code = Code::DATA);
-    // Message(const Message& message)
-    //     : id(message.id),
-    //       source_entity_id(message.source_entity_id),
-    //       target_entity_id(message.target_entity_id),
-    //       content(message.content),
-    //       corrupted(message.corrupted),
-    //       code(message.code) {}
     ~Message();
 
     /* Getters */

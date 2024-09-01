@@ -42,6 +42,7 @@ class Entity {
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
     optional<Message> receiveAckMessage(
         const Message &message,
+        optional<uuids::uuid> &id_from_message_being_acknowledged,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
     optional<Message> receiveAckSynMessage(
         const Message &message, uuids::uuid sent_message_id,
@@ -57,6 +58,11 @@ class Entity {
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
 
    public:
+    struct Response {
+        optional<Message> message;
+        optional<uuids::uuid> id_from_message_possibly_acknowledged;
+    };
+
     /* Construction */
     Entity(string name,
            shared_ptr<uuids::uuid_random_generator> uuid_generator);
@@ -70,9 +76,9 @@ class Entity {
     void setName(string name);
 
     /* Methods */
-    bool canSendMessage() const;
+    bool canSendMessage(uuids::uuid message_id) const;
     bool sendMessage(Message &message);
-    optional<Message> receiveMessage(
+    Response receiveMessage(
         const Message &message,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
     void printStorage(function<void(string)> print_message) const;

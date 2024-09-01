@@ -104,20 +104,22 @@ void GenericProtocol::run() {
     GenericProtocol::sendMessage(entity_a, entity_b, "SYN", Message::Code::SYN,
                                  *network, output_stream);
 
-    // deque<string> contents = {// "Hello, Baobá!",
-    //                           // "Fragment 1",
-    //                           // "Fragment 2",
-    //                           // "Fragment 3",
-    //                           // "Fragment 4",
-    //                           // "Fragment 5",
-    //                           "Fragment 6"};
+    deque<string> contents = {// "Hello, Baobá!",
+                              // "Fragment 1",
+                              // "Fragment 2",
+                              // "Fragment 3",
+                              // "Fragment 4",
+                              // "Fragment 5",
+                              "Fragment 6"};
 
-    // for (string content : contents)
-    // {
-    //     GenericProtocol::sendMessage(entity_a, entity_b, content,
-    //     Message::Code::DATA, *network, output_stream);
-    // }
+    for (string content : contents) {
+        GenericProtocol::sendMessage(entity_a, entity_b, content,
+                                     Message::Code::DATA, *network,
+                                     output_stream);
+    }
 
+    printEntitiesStorage(entity_a, entity_b, output_stream);
+    network->joinThreads();
     printEntitiesStorage(entity_a, entity_b, output_stream);
 }
 
