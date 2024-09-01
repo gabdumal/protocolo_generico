@@ -36,6 +36,7 @@ class Entity {
     void printInformation(
         string information, ostream &output_stream,
         PrettyConsole::Color color = PrettyConsole::Color::DEFAULT) const;
+    optional<Connection> getConnection(uuids::uuid entity_id) const;
     bool isConnectedTo(uuids::uuid entity_id) const;
     bool canReceiveDataFrom(uuids::uuid entity_id) const;
 

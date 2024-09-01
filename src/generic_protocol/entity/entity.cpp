@@ -1,6 +1,7 @@
 #include "entity.hpp"
 
 #include <generic_protocol_constants.hpp>
+#include <optional>
 
 #include "message.hpp"
 #include "util.hpp"
@@ -54,8 +55,17 @@ void Entity::printStorage(function<void(string)> print_message) const {
     print_message("==== END ====");
 }
 
+optional<Entity::Connection> Entity::getConnection(
+    uuids::uuid entity_id) const {
+    auto connection = this->connections.find(entity_id);
+    if (connection != this->connections.end()) {
+        return *connection->second;
+    }
+    return nullopt;
+}
+
 bool Entity::isConnectedTo(uuids::uuid entity_id) const {
-    return this->connections.find(entity_id) != this->connections.end();
+    return this->getConnection(entity_id).has_value();
 }
 
 bool Entity::canSendMessage(uuids::uuid message_id) const {
@@ -109,23 +119,6 @@ void Entity::printMessageSendingInformation(Message &message,
 bool Entity::sendMessage(Message &message) {
     if (!canSendMessage(message.getId())) return false;
 
-    // if (isConnectedTo(message.getTargetEntityId())) {
-    //     if (message.getCode() == Message::Code::ACK) {
-    //         auto ack_type_container = message.getAckType();
-    //         if (ack_type_container.has_value()) {
-    //             auto ack_type = ack_type_container.value();
-    //             if (ack_type == Message::AckType::ACK_ACK_SYN) {
-    //                 return true;
-    //             }
-    //         }
-    //     }
-    //     this->last_unacknowledged_message = message;
-    //     return true;
-    // } else if (message.getCode() == Message::Code::SYN) {
-    //     this->last_unacknowledged_message = message;
-    //     return true;
-    // }
-
     auto [should_send_message, should_lock_entity] =
         this->getSendingMessageConsequence(message);
 
@@ -134,10 +127,6 @@ bool Entity::sendMessage(Message &message) {
     }
 
     return should_send_message;
-
-    // return false;
-
-    // return this->processMessageBeingSent(message);
 }
 
 bool Entity::processMessageBeingSent(Message &message) {
@@ -155,16 +144,12 @@ bool Entity::processMessageBeingSent(Message &message) {
 
 Entity::MessageConsequence Entity::getSendingMessageConsequence(
     const Message &message) const {
-    if (isConnectedTo(message.getTargetEntityId())) {
-        if (message.getCode() == Message::Code::ACK) {
-            auto ack_type_container = message.getAckType();
-            if (ack_type_container.has_value()) {
-                auto ack_type = ack_type_container.value();
-                if (ack_type == Message::AckType::ACK_ACK_SYN) {
-                    return MessageConsequence{true, false};
-                }
-            }
-        }
+    if (message.getCode() == Message::Code::NACK) {
+        return {false, false};
+    }
+    auto connection_container =
+        this->getConnection(message.getTargetEntityId());
+    if (connection_container.has_value()) {
         return MessageConsequence{true, true};
     } else {
         if (message.getCode() == Message::Code::SYN)
@@ -245,7 +230,9 @@ Entity::Response Entity::receiveMessage(
 optional<Message> Entity::receiveSynMessage(
     const Message &message,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    if (!this->isConnectedTo(message.getSourceEntityId())) {
+    auto connection_container =
+        this->getConnection(message.getSourceEntityId());
+    if (!connection_container.has_value()) {
         Message ack_syn_message(
             uuid_generator, this->id, message.getSourceEntityId(),
             "ACK-SYN\n" + to_string(message.getId()), Message::Code::ACK);
@@ -258,6 +245,9 @@ optional<Message> Entity::receiveSynMessage(
             message.getSourceEntityId(), connection));
         return ack_syn_message;
     } else {
+        auto connection = connection_container.value();
+        if (connection.syn_message_id == message.getId()) return nullopt;
+
         return Message(uuid_generator, this->id, message.getSourceEntityId(),
                        "NACK-SYN\n" + to_string(message.getId()),
                        Message::Code::NACK);
