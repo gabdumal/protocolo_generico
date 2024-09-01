@@ -13,6 +13,26 @@
 using namespace std;
 
 class Entity {
+   public:
+    struct Response {
+        optional<Message> message;
+        optional<uuids::uuid> id_from_message_possibly_acknowledged;
+
+        Response(optional<Message> message,
+                 optional<uuids::uuid> id_from_message_possibly_acknowledged)
+            : message(message),
+              id_from_message_possibly_acknowledged(
+                  id_from_message_possibly_acknowledged) {}
+
+        Response(optional<Message> message)
+            : message(message),
+              id_from_message_possibly_acknowledged(nullopt) {}
+
+        Response()
+            : message(nullopt),
+              id_from_message_possibly_acknowledged(nullopt) {}
+    };
+
    private:
     struct Connection {
         optional<uuids::uuid> syn_message_id;
@@ -40,37 +60,32 @@ class Entity {
     bool isConnectedTo(uuids::uuid entity_id) const;
     bool canReceiveDataFrom(uuids::uuid entity_id) const;
 
-    optional<Message> receiveSynMessage(
+    Response receiveSynMessage(
         const Message &message,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    optional<Message> receiveFinMessage(
+    Response receiveFinMessage(
         const Message &message,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    optional<Message> receiveAckMessage(
+    Response receiveAckMessage(
         const Message &message,
-        optional<uuids::uuid> &id_from_message_being_acknowledged,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    optional<Message> receiveAckSynMessage(
+    Response receiveAckSynMessage(
         const Message &message, uuids::uuid sent_message_id,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    optional<Message> receiveAckAckSynMessage(
+    Response receiveAckAckSynMessage(
         const Message &message, uuids::uuid sent_message_id,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    optional<Message> receiveNackMessage(
+    Response receiveAckAckAckSynMessage(
+        const Message &message, uuids::uuid sent_message_id,
+        shared_ptr<uuids::uuid_random_generator> uuid_generator);
+    Response receiveNackMessage(
         const Message &message,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    optional<Message> receiveDataMessage(
+    Response receiveDataMessage(
         const Message &message,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-
-    bool processMessageBeingSent(Message &message);
 
    public:
-    struct Response {
-        optional<Message> message;
-        optional<uuids::uuid> id_from_message_possibly_acknowledged;
-    };
-
     /* Construction */
     Entity(string name,
            shared_ptr<uuids::uuid_random_generator> uuid_generator);
@@ -84,16 +99,18 @@ class Entity {
     void setName(string name);
 
     /* Methods */
+    MessageConsequence getSendingMessageConsequence(
+        const Message &message) const;
     bool canSendMessage(uuids::uuid message_id) const;
+
     bool sendMessage(Message &message);
-    void printMessageInformation(const Message &message, ostream &output_stream,
-                                 bool is_sending) const;
     Response receiveMessage(
         const Message &message,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
+
+    void printMessageInformation(const Message &message, ostream &output_stream,
+                                 bool is_sending) const;
     void printStorage(function<void(string)> print_message) const;
-    MessageConsequence getSendingMessageConsequence(
-        const Message &message) const;
 };
 
 #endif  // _ENTITY_HPP

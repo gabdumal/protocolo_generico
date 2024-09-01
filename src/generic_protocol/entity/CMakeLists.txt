@@ -4,6 +4,7 @@ target_sources(generic_protocol
         entity.hpp
     PRIVATE
         entity.cpp
+        receive_message.cpp
 )
 
 # Include self
