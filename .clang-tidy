@@ -1,5 +1,13 @@
 Checks: "-*,readability-identifier-naming"
 CheckOptions:
+  # Macro
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.MacroDefinitionPrefix
+    value: "_"
+  - key: readability-identifier-naming.MacroDefinitionIgnoredRegexp
+  value: "^[A-Z]+(_[A-Z]+)*_$"
+
   # Default
   - key: readability-identifier-naming.VariableCase
     value: lower_case
@@ -61,9 +69,3 @@ CheckOptions:
   # Global
   - key: readability-identifier-naming.GlobalConstantCase
     value: UPPER_CASE
-
-  # Macro
-  - key: readability-identifier-naming.MacroDefinitionCase
-    value: UPPER_CASE
-  - key: readability-identifier-naming.MacroDefinitionIgnoredRegexp
-    value: "^[A-Z]+(_[A-Z]+)*_$"

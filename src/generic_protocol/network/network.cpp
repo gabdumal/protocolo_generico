@@ -15,16 +15,17 @@ Network::Network(string name,
     this->uuid_generator = uuid_generator;
     this->name = name;
     this->processing_messages_count = 0;
-    this->can_stop_thread = false;
-    this->network_thread = thread([this]() {
+    this->can_stop_processing_thread = false;
+    this->processing_messages_thread = thread([this]() {
         while (true) {
-            unique_lock<mutex> lock(this->messages_mutex);
-            if (this->can_stop_thread && messages.empty()) {
+            unique_lock<mutex> lock(this->messages_to_process_mutex);
+            if (this->can_stop_processing_thread &&
+                messages_to_process.empty()) {
                 break;
             }
-            if (!this->messages.empty()) {
-                Message message = this->messages.front();
-                this->messages.pop();
+            if (!this->messages_to_process.empty()) {
+                Message message = this->messages_to_process.front();
+                this->messages_to_process.pop();
                 lock.unlock();
                 this->processMessage(message);
                 lock.lock();
@@ -37,8 +38,8 @@ Network::Network(string name,
 
 Network::~Network() {
     {
-        lock_guard<mutex> lock(this->messages_mutex);
-        this->can_stop_thread = true;
+        lock_guard<mutex> lock(this->messages_to_process_mutex);
+        this->can_stop_processing_thread = true;
         this->message_processed_cv.notify_all();
     }
     this->joinThread();
@@ -53,7 +54,7 @@ Network::~Network() {
 
 string Network::getName() const { return name; }
 
-/* Methods */
+/* Entities */
 
 void Network::connectEntity(shared_ptr<Entity> entity) {
     lock_guard<mutex> lock(this->entities_mutex);
@@ -67,73 +68,45 @@ void Network::disconnectEntity(uuids ::uuid entity_id) {
     this->message_processed_cv.notify_all();
 }
 
-bool Network::receiveMessage(Message message) {
-    // Simulate packet loss
-    if (rand() % 100 <
-        GenericProtocolConstants::packet_loss_probability * 100) {
-        if (GenericProtocolConstants::debug_information) {
-            this->printInformation("Message " + to_string(message.getId()) +
-                                       " has been lost in the network " +
-                                       this->getName() + "!",
-                                   cout, PrettyConsole::Color::YELLOW);
-        }
-        return false;
-    }
+/* Main */
 
-    try {
-        lock_guard<mutex> lock(this->messages_mutex);
-        this->messages.push(message);
-        this->processing_messages_count++;
-        this->message_processed_cv.notify_one();  // Notify the network thread
-    } catch (const exception &e) {
-        this->printInformation("Error while receiving message in the network " +
-                                   this->getName() + ": " + e.what(),
-                               cerr, PrettyConsole::Color::RED);
-        return false;
-    }
-    return true;
+bool Network::receiveMessage(Message message) {
+    this->registerMessageSending(message);
+    return this->preprocessMessage(message);
+}
+
+bool Network::preprocessMessage(Message message) {
+    if (this->hasPackageBeenLost(message.getId())) return false;
+    return this->insertMessageIntoProcessingQueue(message);
 }
 
 void Network::processMessage(Message message) {
-    // Simulate network latency
-    chrono::milliseconds time_span(rand() %
-                                   GenericProtocolConstants::network_latency);
-    this_thread::sleep_for(time_span);
-
-    // Simulate message corruption
-    if (rand() % 100 <
-        GenericProtocolConstants::packet_corruption_probability * 100) {
-        this->printInformation("Message [" + to_string(message.getId()) +
-                                   "] has been corrupted in the network " +
-                                   this->getName() + "!",
-                               cout, PrettyConsole::Color::YELLOW);
-        message.setCorrupted(true);
-    }
+    this->simulateNetworkLatency();
+    this->simulatePacketCorruption(message);
 
     this->sendMessage(message);
-
-    // Brackets are used to limit the scope of the lock
-    {
-        lock_guard<mutex> lock(this->messages_mutex);
-        this->processing_messages_count--;
-        if (processing_messages_count == 0) {
-            this->message_processed_cv.notify_all();  // Notify the destructor
-        }
-    }
+    this->finishMessageProcessing();
 }
+
+/* Operational */
 
 void Network::sendMessage(Message message) {
     lock_guard<mutex> lock(this->entities_mutex);
     auto target_entity_pair = this->entities.find(message.getTargetEntityId());
+
     if (target_entity_pair != entities.end()) {
         shared_ptr<Entity> target_entity = target_entity_pair->second;
+
         if (target_entity) {
             auto source_entity_pair =
                 this->entities.find(message.getSourceEntityId());
+
             if (source_entity_pair != entities.end()) {
                 shared_ptr<Entity> source_entity = source_entity_pair->second;
+
                 if (source_entity) {
                     bool can_send_message = source_entity->sendMessage(message);
+
                     if (!can_send_message) {
                         if (GenericProtocolConstants::debug_information) {
                             this->printInformation(
@@ -152,9 +125,11 @@ void Network::sendMessage(Message message) {
                                     to_string(target_entity->getId()) + "]!",
                                 cout, PrettyConsole::Color::GREEN);
                         }
+
                         optional<Message> returned_message =
                             target_entity->receiveMessage(message,
                                                           this->uuid_generator);
+
                         if (returned_message) {
                             this->receiveMessage(returned_message.value());
                         }
@@ -191,6 +166,74 @@ void Network::sendMessage(Message message) {
     }
 }
 
+void Network::finishMessageProcessing() {
+    lock_guard<mutex> lock(this->messages_to_process_mutex);
+    this->processing_messages_count--;
+    if (processing_messages_count == 0) {
+        this->message_processed_cv.notify_all();  // Notify the destructor
+    }
+}
+
+/* Auxiliary */
+
+bool Network::insertMessageIntoProcessingQueue(Message message) {
+    try {
+        lock_guard<mutex> lock(this->messages_to_process_mutex);
+        this->messages_to_process.push(message);
+        this->processing_messages_count++;
+        this->message_processed_cv.notify_one();  // Notify the network thread
+        return true;
+    } catch (const exception &e) {
+        this->printInformation("Error while receiving message in the network " +
+                                   this->getName() + ": " + e.what(),
+                               cerr, PrettyConsole::Color::RED);
+        return false;
+    }
+}
+
+void Network::joinThread() {
+    if (this->processing_messages_thread.joinable()) {
+        this->processing_messages_thread.join();
+    }
+}
+
+void Network::registerMessageSending(Message message) {
+    lock_guard<mutex> lock(this->messages_to_process_mutex);
+    this->unconfirmed_messages.insert(
+        {message.getId(), MessageSending(message)});
+}
+
+bool Network::hasPackageBeenLost(uuids::uuid message_id) {
+    if (rand() % 100 <
+        GenericProtocolConstants::packet_loss_probability * 100) {
+        if (GenericProtocolConstants::debug_information) {
+            this->printInformation("Message " + to_string(message_id) +
+                                       " has been lost in the network " +
+                                       this->getName() + "!",
+                                   cout, PrettyConsole::Color::YELLOW);
+        }
+        return true;
+    }
+    return false;
+}
+
+void Network::simulateNetworkLatency() {
+    chrono::milliseconds time_span(rand() %
+                                   GenericProtocolConstants::network_latency);
+    this_thread::sleep_for(time_span);
+}
+
+void Network::simulatePacketCorruption(Message &message) {
+    if (rand() % 100 <
+        GenericProtocolConstants::packet_corruption_probability * 100) {
+        this->printInformation("Message [" + to_string(message.getId()) +
+                                   "] has been corrupted in the network " +
+                                   this->getName() + "!",
+                               cout, PrettyConsole::Color::YELLOW);
+        message.setCorrupted(true);
+    }
+}
+
 void Network::printInformation(string information, ostream &output_stream,
                                PrettyConsole::Color color) const {
     string header = "Network " + this->getName();
@@ -201,12 +244,6 @@ void Network::printInformation(string information, ostream &output_stream,
         color, PrettyConsole::Color::DEFAULT, PrettyConsole::Format::NONE};
     Util::printInformation(header, information, output_stream,
                            header_decoration, information_decoration);
-}
-
-void Network::joinThread() {
-    if (this->network_thread.joinable()) {
-        this->network_thread.join();
-    }
 }
 
 /* Static Methods */

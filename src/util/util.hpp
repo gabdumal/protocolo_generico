@@ -7,6 +7,7 @@
 using namespace std;
 
 namespace Util {
+
     void printInformation(string header, string information,
                           ostream &output_stream = cout,
                           PrettyConsole::Decoration header_decoration =

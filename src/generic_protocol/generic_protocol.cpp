@@ -133,6 +133,21 @@ shared_ptr<Entity> GenericProtocol::createEntity(
     return entity;
 }
 
+void GenericProtocol::sendMessage(shared_ptr<Entity> source,
+                                  shared_ptr<Entity> target,
+                                  string message_content, Code message_code,
+                                  Network &network,
+                                  ostringstream &output_stream) {
+    Message message = Message(uuid_generator, source->getId(), target->getId(),
+                              message_content, message_code);
+
+    printSendingMessageHeader(source, target, message_content, message_code,
+                              network, output_stream);
+
+    bool has_been_processed = network.receiveMessage(message);
+    printSendingMessageFooter(has_been_processed, output_stream);
+}
+
 void GenericProtocol::printSendingMessageHeader(shared_ptr<Entity> source,
                                                 shared_ptr<Entity> target,
                                                 string message_content,
@@ -140,21 +155,16 @@ void GenericProtocol::printSendingMessageHeader(shared_ptr<Entity> source,
                                                 Network &network,
                                                 ostringstream &output_stream) {
     output_stream << "Sending message" << endl;
-
     output_stream << PrettyConsole::tab
                   << "Source entity: " << source->getName() << " ["
                   << source->getId() << "]" << endl;
-
     output_stream << PrettyConsole::tab
                   << "Target entity: " << target->getName() << " ["
                   << target->getId() << "]" << endl;
-
     output_stream << PrettyConsole::tab
                   << "Message content: " << message_content << endl;
-
     output_stream << PrettyConsole::tab << "Message code: " << message_code
                   << endl;
-
     output_stream << PrettyConsole::tab << "Network: " << network.getName()
                   << endl;
 }
@@ -172,19 +182,4 @@ void GenericProtocol::printSendingMessageFooter(bool has_been_processed,
     cout << output_stream.str();
     output_stream.str("");
     cout.flush();
-}
-
-void GenericProtocol::sendMessage(shared_ptr<Entity> source,
-                                  shared_ptr<Entity> target,
-                                  string message_content, Code message_code,
-                                  Network &network,
-                                  ostringstream &output_stream) {
-    Message message = Message(uuid_generator, source->getId(), target->getId(),
-                              message_content, message_code);
-
-    printSendingMessageHeader(source, target, message_content, message_code,
-                              network, output_stream);
-
-    bool has_been_processed = network.receiveMessage(message);
-    printSendingMessageFooter(has_been_processed, output_stream);
 }

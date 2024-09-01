@@ -85,19 +85,23 @@ bool Entity::sendMessage(Message &message) {
         message.print([&message_content](string line) {
             message_content << PrettyConsole::tab << line << endl;
         });
+
         optional<uuids::uuid> last_unacknowledged_message_id =
             this->last_unacknowledged_message.has_value()
                 ? optional<uuids::uuid>(
                       this->last_unacknowledged_message.value().getId())
                 : nullopt;
+
         string last_unacknowledged_message_id_as_string =
             last_unacknowledged_message_id.has_value()
                 ? uuids::to_string(last_unacknowledged_message_id.value())
                 : "N/A";
+
         string information = "Last unacknowledged message ID: [" +
                              last_unacknowledged_message_id_as_string +
                              "]\nTrying to send message\n" +
                              message_content.str();
+
         this->printInformation(information, cout, PrettyConsole::Color::YELLOW);
     }
 
@@ -122,18 +126,22 @@ optional<Message> Entity::receiveMessage(
         message.print([&message_content](string line) {
             message_content << PrettyConsole::tab << line << endl;
         });
+
         optional<uuids::uuid> last_unacknowledged_message_id =
             this->last_unacknowledged_message.has_value()
                 ? optional<uuids::uuid>(
                       this->last_unacknowledged_message.value().getId())
                 : nullopt;
+
         string last_unacknowledged_message_id_as_string =
             last_unacknowledged_message_id.has_value()
                 ? uuids::to_string(last_unacknowledged_message_id.value())
                 : "N/A";
+
         string information = "Last unacknowledged message ID: [" +
                              last_unacknowledged_message_id_as_string +
                              "]\nReceive message\n" + message_content.str();
+
         this->printInformation(information, cout,
                                PrettyConsole::Color::MAGENTA);
     }
