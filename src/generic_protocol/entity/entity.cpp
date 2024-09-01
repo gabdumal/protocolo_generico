@@ -87,9 +87,9 @@ bool Entity::canReceiveDataFrom(uuids::uuid entity_id) const {
            connection->second->ack_ack_syn_message_id.has_value();
 }
 
-void Entity::printMessageSendingInformation(Message &message,
-                                            ostream &output_stream,
-                                            PrettyConsole::Color color) const {
+void Entity::printMessageInformation(const Message &message,
+                                     ostream &output_stream,
+                                     bool is_sending) const {
     if (GenericProtocolConstants::debug_information) {
         ostringstream message_content;
         message.print([&message_content](string line) {
@@ -101,18 +101,32 @@ void Entity::printMessageSendingInformation(Message &message,
                 ? optional<uuids::uuid>(
                       this->last_unacknowledged_message.value().getId())
                 : nullopt;
-
         string last_unacknowledged_message_id_as_string =
             last_unacknowledged_message_id.has_value()
                 ? uuids::to_string(last_unacknowledged_message_id.value())
                 : "N/A";
 
-        string information = "Last unacknowledged message ID: [" +
-                             last_unacknowledged_message_id_as_string +
-                             "]\nTrying to send message\n" +
-                             message_content.str();
+        uuids::uuid target_entity_id = message.getTargetEntityId();
+        auto connection = this->getConnection(target_entity_id);
+        auto last_received_message_id =
+            connection.has_value() ? connection->id_from_last_received_message
+                                   : nullopt;
+        string last_received_message_id_as_string =
+            last_received_message_id.has_value()
+                ? uuids::to_string(last_received_message_id.value())
+                : "N/A";
 
-        this->printInformation(information, cout, PrettyConsole::Color::YELLOW);
+        string operation =
+            is_sending ? "Trying to send message\n" : "Received message\n";
+        string information = "Last unacknowledged message ID: [" +
+                             last_unacknowledged_message_id_as_string + "]\n" +
+                             "Last received message ID: [" +
+                             last_received_message_id_as_string + "]\n" +
+                             operation + message_content.str();
+
+        this->printInformation(information, cout,
+                               is_sending ? PrettyConsole::Color::YELLOW
+                                          : PrettyConsole::Color::MAGENTA);
     }
 }
 
@@ -162,30 +176,7 @@ Entity::MessageConsequence Entity::getSendingMessageConsequence(
 Entity::Response Entity::receiveMessage(
     const Message &message,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    if (GenericProtocolConstants::debug_information) {
-        ostringstream message_content;
-        message.print([&message_content](string line) {
-            message_content << PrettyConsole::tab << line << endl;
-        });
-
-        optional<uuids::uuid> last_unacknowledged_message_id =
-            this->last_unacknowledged_message.has_value()
-                ? optional<uuids::uuid>(
-                      this->last_unacknowledged_message.value().getId())
-                : nullopt;
-
-        string last_unacknowledged_message_id_as_string =
-            last_unacknowledged_message_id.has_value()
-                ? uuids::to_string(last_unacknowledged_message_id.value())
-                : "N/A";
-
-        string information = "Last unacknowledged message ID: [" +
-                             last_unacknowledged_message_id_as_string +
-                             "]\nReceive message\n" + message_content.str();
-
-        this->printInformation(information, cout,
-                               PrettyConsole::Color::MAGENTA);
-    }
+    this->printMessageInformation(message, cout, false);
 
     optional<Message> response_message = nullopt;
     optional<uuids::uuid> id_from_message_possibly_acknowledged = nullopt;

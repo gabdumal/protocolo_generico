@@ -235,8 +235,7 @@ void Network::registerMessageSending(Message message) {
     }
     auto source_entity = source_entity_pair->second;
 
-    source_entity->printMessageSendingInformation(
-        message, cout, PrettyConsole::Color ::YELLOW);
+    source_entity->printMessageInformation(message, cout, true);
 
     auto [should_send_message, should_lock_entity] =
         source_entity->getSendingMessageConsequence(message);

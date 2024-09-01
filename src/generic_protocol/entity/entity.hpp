@@ -86,9 +86,8 @@ class Entity {
     /* Methods */
     bool canSendMessage(uuids::uuid message_id) const;
     bool sendMessage(Message &message);
-    void printMessageSendingInformation(Message &message,
-                                        ostream &output_stream,
-                                        PrettyConsole::Color color) const;
+    void printMessageInformation(const Message &message, ostream &output_stream,
+                                 bool is_sending) const;
     Response receiveMessage(
         const Message &message,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
