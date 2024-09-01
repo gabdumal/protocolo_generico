@@ -18,9 +18,9 @@ target_include_directories(generic_protocol
 # Linking libraries
 target_link_libraries(generic_protocol
     PRIVATE
-        console_colors
+        pretty_console
         uuid
-        constants
+        util
 )
 
 # Directories

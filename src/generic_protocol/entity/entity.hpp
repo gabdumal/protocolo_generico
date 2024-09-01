@@ -1,17 +1,14 @@
 #ifndef _ENTITY_HPP
 #define _ENTITY_HPP
 
+#include "../../util/util.hpp"
 #include <uuid.h>
-#include <console_colors.hpp>
-#include <constants.hpp>
+#include <pretty_console.hpp>
 #include <message.hpp>
 #include <string>
 #include <unordered_map>
 #include <optional>
 #include <memory>
-#include <chrono>
-#include <thread>
-#include <mutex>
 
 using namespace std;
 
@@ -32,17 +29,10 @@ private:
     unordered_map<uuids::uuid, shared_ptr<Connection>> connections;
     optional<Message> lastUnacknowledgedMessage;
 
-    chrono::milliseconds timeoutDuration;
-    thread timerThread;
-    mutex mtx;
-
     /* Methods */
-    void printInformation(string information, ostream &outputStream, ConsoleColors::Color color = ConsoleColors::Color::DEFAULT) const;
+    void printInformation(string information, ostream &outputStream, PrettyConsole::Color color = PrettyConsole::Color::DEFAULT) const;
     bool isConnectedTo(uuids::uuid entityId) const;
     bool canReceiveDataFrom(uuids::uuid entityId) const;
-    void startTimer();
-    void resetTimer();
-    void resendMessage();
 
     optional<Message> receiveSynMessage(const Message &message, shared_ptr<uuids::uuid_random_generator> uuidGenerator);
     optional<Message> receiveFinMessage(const Message &message, shared_ptr<uuids::uuid_random_generator> uuidGenerator);

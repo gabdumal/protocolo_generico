@@ -12,12 +12,12 @@ target_include_directories(networks_project
 # Linking libraries
 target_link_libraries(networks_project
     PRIVATE
-        console_colors
+        pretty_console
         uuid
-        constants
+        util
         generic_protocol
 )
 
 # Directories
-add_subdirectory(constants)
+add_subdirectory(util)
 add_subdirectory(generic_protocol)

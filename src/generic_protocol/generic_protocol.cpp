@@ -1,5 +1,5 @@
-#include <generic_protocol.hpp>
-#include <constants.hpp>
+#include "generic_protocol.hpp"
+#include "../util/util.hpp"
 #include <iostream>
 #include <queue>
 
@@ -100,10 +100,10 @@ void GenericProtocol::run()
         // "Fragment 5",
         "Fragment 6"};
 
-    for (string content : contents)
-    {
-        GenericProtocol::sendMessage(entityA, entityB, content, Code::DATA, *network, outputStream);
-    }
+    // for (string content : contents)
+    // {
+    //     GenericProtocol::sendMessage(entityA, entityB, content, Code::DATA, *network, outputStream);
+    // }
 
     printEntitiesStorage(entityA, entityB, outputStream);
 }
@@ -121,24 +121,33 @@ shared_ptr<Entity> GenericProtocol::createEntity(string name, function<void(stri
     return entity;
 }
 
-void GenericProtocol::sendMessage(shared_ptr<Entity> source, shared_ptr<Entity> target, string messageContent, Code messageCode, Network &network, ostringstream &outputStream)
+void printSendingMessageHeader(shared_ptr<Entity> source, shared_ptr<Entity> target, string messageContent, Code messageCode, Network &network, ostringstream &outputStream)
 {
     outputStream << "Sending message" << endl;
-
-    Message message = Message(uuidGenerator, source->getId(), target->getId(), messageContent, messageCode);
 
     outputStream << TAB << "Source entity: " << source->getName() << " [" << source->getId() << "]" << endl;
 
     outputStream << TAB << "Target entity: " << target->getName() << " [" << target->getId() << "]" << endl;
 
-    outputStream << TAB << "Message:" << endl;
-    message.print(
-        [&outputStream](string message)
-        {
-            outputStream << TAB << TAB << message << endl;
-        });
+    outputStream << TAB << "Message content: " << messageContent << endl;
+
+    outputStream << TAB << "Message code: " << messageCode << endl;
 
     outputStream << TAB << "Network: " << network.getName() << endl;
+}
+
+void printSendingMessageFooter(bool hasBeenProcessed, ostringstream &outputStream)
+{
+    outputStream << endl;
+    cout << outputStream.str();
+    outputStream.str("");
+}
+
+void GenericProtocol::sendMessage(shared_ptr<Entity> source, shared_ptr<Entity> target, string messageContent, Code messageCode, Network &network, ostringstream &outputStream)
+{
+    Message message = Message(uuidGenerator, source->getId(), target->getId(), messageContent, messageCode);
+
+    printSendingMessageHeader(source, target, messageContent, messageCode, network, outputStream);
 
     bool hasBeenProcessed = network.receiveMessage(message);
     if (hasBeenProcessed)

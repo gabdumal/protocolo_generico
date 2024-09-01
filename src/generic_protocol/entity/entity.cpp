@@ -1,4 +1,4 @@
-#include <entity.hpp>
+#include "entity.hpp"
 #include <generic_protocol_constants.hpp>
 
 using namespace std;
@@ -25,15 +25,10 @@ Entity::Entity(string name, shared_ptr<uuids::uuid_random_generator> uuidGenerat
     this->storage = "";
     this->connections = unordered_map<uuids::uuid, shared_ptr<Connection>>();
     this->lastUnacknowledgedMessage = nullopt;
-    this->timeoutDuration = chrono::milliseconds(GenericProtocolConstants::resendTimeout);
 }
 
 Entity::~Entity()
 {
-    if (this->timerThread.joinable())
-    {
-        this->timerThread.join();
-    }
 }
 
 /* Getters */
@@ -59,11 +54,13 @@ void Entity::setName(string name)
 
 void Entity::printInformation(
     string information,
-    ostream &outputStream,
-    ConsoleColors::Color color) const
+    ostream &output_stream,
+    PrettyConsole::Color color) const
 {
     string header = "Entity " + this->getName() + " [" + to_string(this->getId()) + "]";
-    ConsoleColors::printInformation(header, information, outputStream, ConsoleColors::Color::BRIGHT_WHITE, ConsoleColors::Color::CYAN, color);
+    PrettyConsole::Decoration header_decoration(PrettyConsole::Color::WHITE, PrettyConsole::Color::CYAN, PrettyConsole::Format::BOLD);
+    PrettyConsole::Decoration information_decoration(color);
+    Util::printInformation(header, information, output_stream, header_decoration, information_decoration);
 }
 
 void Entity::printStorage(function<void(string)> printMessage) const
@@ -101,11 +98,11 @@ bool Entity::sendMessage(Message &message)
     {
         ostringstream messageContent;
         message.print([&messageContent](string line)
-                      { messageContent << ConsoleColors::tab << line << endl; });
+                      { messageContent << PrettyConsole::tab << line << endl; });
         optional<uuids::uuid> lastUnacknowledgedMessageId = this->lastUnacknowledgedMessage.has_value() ? optional<uuids::uuid>(this->lastUnacknowledgedMessage.value().getId()) : nullopt;
         string lastUnacknowledgedMessageIdAsString = lastUnacknowledgedMessageId.has_value() ? uuids::to_string(lastUnacknowledgedMessageId.value()) : "N/A";
         string information = "Last unacknowledged message ID: [" + lastUnacknowledgedMessageIdAsString + "]\nTrying to send message\n" + messageContent.str();
-        this->printInformation(information, cout, ConsoleColors::Color::YELLOW);
+        this->printInformation(information, cout, PrettyConsole::Color::YELLOW);
     }
 
     if (!canSendMessage())
@@ -131,11 +128,11 @@ optional<Message> Entity::receiveMessage(const Message &message, shared_ptr<uuid
     {
         ostringstream messageContent;
         message.print([&messageContent](string line)
-                      { messageContent << ConsoleColors::tab << line << endl; });
+                      { messageContent << PrettyConsole::tab << line << endl; });
         optional<uuids::uuid> lastUnacknowledgedMessageId = this->lastUnacknowledgedMessage.has_value() ? optional<uuids::uuid>(this->lastUnacknowledgedMessage.value().getId()) : nullopt;
         string lastUnacknowledgedMessageIdAsString = lastUnacknowledgedMessageId.has_value() ? uuids::to_string(lastUnacknowledgedMessageId.value()) : "N/A";
-        string information = "Last unacknowledged message ID: [" + lastUnacknowledgedMessageIdAsString + "]\nTrying to send message\n" + messageContent.str();
-        this->printInformation(information, cout, ConsoleColors::Color::MAGENTA);
+        string information = "Last unacknowledged message ID: [" + lastUnacknowledgedMessageIdAsString + "]\nReceive message\n" + messageContent.str();
+        this->printInformation(information, cout, PrettyConsole::Color::MAGENTA);
     }
 
     if (message.isCorrupted())

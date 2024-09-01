@@ -1,5 +1,5 @@
-#include <network.hpp>
-#include <console_colors.hpp>
+#include "network.hpp"
+#include <pretty_console.hpp>
 #include <generic_protocol_constants.hpp>
 #include <iostream>
 
@@ -47,7 +47,7 @@ Network::~Network()
     this->joinThread();
     if (GenericProtocolConstants::debugInformation)
     {
-        this->printInformation("Network " + this->getName() + " has been destroyed!", cout, ConsoleColors::Color::YELLOW);
+        this->printInformation("Network " + this->getName() + " has been destroyed!", cout, PrettyConsole::Color::YELLOW);
     }
 }
 
@@ -81,7 +81,7 @@ bool Network::receiveMessage(Message message)
     {
         if (GenericProtocolConstants::debugInformation)
         {
-            this->printInformation("Message " + to_string(message.getId()) + " has been lost in the network " + this->getName() + "!", cout, ConsoleColors::Color::YELLOW);
+            this->printInformation("Message " + to_string(message.getId()) + " has been lost in the network " + this->getName() + "!", cout, PrettyConsole::Color::YELLOW);
         }
         return false;
     }
@@ -95,7 +95,7 @@ bool Network::receiveMessage(Message message)
     }
     catch (const exception &e)
     {
-        this->printInformation("Error while receiving message in the network " + this->getName() + ": " + e.what(), cerr, ConsoleColors::Color::RED);
+        this->printInformation("Error while receiving message in the network " + this->getName() + ": " + e.what(), cerr, PrettyConsole::Color::RED);
         return false;
     }
     return true;
@@ -110,7 +110,7 @@ void Network::processMessage(Message message)
     // Simulate message corruption
     if (rand() % 100 < GenericProtocolConstants::packetCorruptionProbability * 100)
     {
-        this->printInformation("Message [" + to_string(message.getId()) + "] has been corrupted in the network " + this->getName() + "!", cout, ConsoleColors::Color::YELLOW);
+        this->printInformation("Message [" + to_string(message.getId()) + "] has been corrupted in the network " + this->getName() + "!", cout, PrettyConsole::Color::YELLOW);
         message.setCorrupted(true);
     }
 
@@ -147,14 +147,14 @@ void Network::sendMessage(Message message)
                     {
                         if (GenericProtocolConstants::debugInformation)
                         {
-                            this->printInformation("Source entity " + sourceEntity->getName() + " [" + to_string(sourceEntity->getId()) + "] cannot send the message " + "[" + to_string(message.getId()) + "]!", cout, ConsoleColors::Color::RED);
+                            this->printInformation("Source entity " + sourceEntity->getName() + " [" + to_string(sourceEntity->getId()) + "] cannot send the message " + "[" + to_string(message.getId()) + "]!", cout, PrettyConsole::Color::RED);
                         }
                     }
                     else
                     {
                         if (GenericProtocolConstants::debugInformation)
                         {
-                            this->printInformation("Message " + to_string(message.getId()) + " has been sent to the target entity " + targetEntity->getName() + " [" + to_string(targetEntity->getId()) + "]!", cout, ConsoleColors::Color::GREEN);
+                            this->printInformation("Message " + to_string(message.getId()) + " has been sent to the target entity " + targetEntity->getName() + " [" + to_string(targetEntity->getId()) + "]!", cout, PrettyConsole::Color::GREEN);
                         }
                         optional<Message> returnedMessage = targetEntity->receiveMessage(message, this->uuidGenerator);
                         if (returnedMessage)
@@ -165,31 +165,39 @@ void Network::sendMessage(Message message)
                 }
                 else
                 {
-                    this->printInformation("Source entity [" + to_string(message.getSourceEntityId()) + "] has been disconnected from the network " + this->getName() + "!", cerr, ConsoleColors::Color::RED);
+                    this->printInformation("Source entity [" + to_string(message.getSourceEntityId()) + "] has been disconnected from the network " + this->getName() + "!", cerr, PrettyConsole::Color::RED);
                     this->disconnectEntity(message.getSourceEntityId());
                 }
             }
             else
             {
-                this->printInformation("Source entity [" + to_string(message.getSourceEntityId()) + "] is not connected to the network " + this->getName() + "!", cerr, ConsoleColors::Color::RED);
+                this->printInformation("Source entity [" + to_string(message.getSourceEntityId()) + "] is not connected to the network " + this->getName() + "!", cerr, PrettyConsole::Color::RED);
             }
         }
         else
         {
-            this->printInformation("Target entity [" + to_string(message.getTargetEntityId()) + "] has been disconnected from the network " + this->getName() + "!", cerr, ConsoleColors::Color::RED);
+            this->printInformation("Target entity [" + to_string(message.getTargetEntityId()) + "] has been disconnected from the network " + this->getName() + "!", cerr, PrettyConsole::Color::RED);
             this->disconnectEntity(message.getTargetEntityId());
         }
     }
     else
     {
-        this->printInformation("Target entity [" + to_string(message.getTargetEntityId()) + "] is not connected to the network " + this->getName() + "!", cerr, ConsoleColors::Color::RED);
+        this->printInformation("Target entity [" + to_string(message.getTargetEntityId()) + "] is not connected to the network " + this->getName() + "!", cerr, PrettyConsole::Color::RED);
     }
 }
 
-void Network::printInformation(string information, ostream &outputStream, ConsoleColors::Color color) const
+void Network::printInformation(string information, ostream &output_stream, PrettyConsole::Color color) const
 {
     string header = "Network " + this->getName();
-    ConsoleColors::printInformation(header, information, outputStream, ConsoleColors::Color::WHITE, ConsoleColors::Color::BLUE, color);
+    PrettyConsole::Decoration header_decoration{
+        PrettyConsole::Color::WHITE,
+        PrettyConsole::Color::BLUE,
+        PrettyConsole::Format::BOLD};
+    PrettyConsole::Decoration information_decoration{
+        color,
+        PrettyConsole::Color::DEFAULT,
+        PrettyConsole::Format::NONE};
+    Util::printInformation(header, information, output_stream, header_decoration, information_decoration);
 }
 
 void Network::joinThread()

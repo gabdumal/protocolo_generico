@@ -1,8 +1,8 @@
 #ifndef _NETWORK_HPP
 #define _NETWORK_HPP
 
+#include "../entity/entity.hpp"
 #include <uuid.h>
-#include <entity.hpp>
 #include <message.hpp>
 #include <string>
 #include <unordered_map>
@@ -40,7 +40,7 @@ private:
     /* Methods */
     void processMessage(Message message);
     void sendMessage(Message message);
-    void printInformation(string information, ostream &outputStream, ConsoleColors::Color color = ConsoleColors::Color::DEFAULT) const;
+    void printInformation(string information, ostream &outputStream, PrettyConsole::Color color = PrettyConsole::Color::DEFAULT) const;
     void joinThread();
 
 public:

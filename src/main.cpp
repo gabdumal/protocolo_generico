@@ -1,4 +1,4 @@
-#include <generic_protocol.hpp>
+#include "./generic_protocol/generic_protocol.hpp"
 #include <uuid.h>
 #include <iostream>
 #include <memory>

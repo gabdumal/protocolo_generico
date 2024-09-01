@@ -1,3 +1,3 @@
 # Directories
-add_subdirectory(console_colors)
+add_subdirectory(pretty_console)
 add_subdirectory(uuid)
