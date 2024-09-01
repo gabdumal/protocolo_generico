@@ -4,10 +4,12 @@
 #include <uuid.h>
 
 #include <memory>
+#include <set>
 
 #include "./entity/entity.hpp"
 #include "./message/message.hpp"
 #include "./network/network.hpp"
+#include "connection.hpp"
 
 class GenericProtocol {
    private:
@@ -32,7 +34,11 @@ class GenericProtocol {
 
     /* Static methods */
     static shared_ptr<Entity> createEntity(
-        string name, function<void(string)> print_message);
+        string name,
+        map<pair<shared_ptr<Entity>, shared_ptr<Entity>>, Connection>
+            &connections,
+        function<void(string)> print_message);
+
     static void sendMessage(shared_ptr<Entity> source,
                             shared_ptr<Entity> target, string message_content,
                             Message::Code message_code, Network &network,

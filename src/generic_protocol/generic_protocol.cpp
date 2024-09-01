@@ -1,9 +1,13 @@
 #include "generic_protocol.hpp"
 
 #include <iostream>
+#include <map>
+#include <memory>
 #include <pretty_console.hpp>
 #include <sstream>
+#include <utility>
 
+#include "entity.hpp"
 #include "message.hpp"
 
 using namespace std;
@@ -30,16 +34,19 @@ unique_ptr<Network> createNetwork(
 }
 
 pair<shared_ptr<Entity>, shared_ptr<Entity>> createEntities(
+    map<pair<shared_ptr<Entity>, shared_ptr<Entity>>, Connection> &connections,
     ostringstream &output_stream) {
     output_stream << "Creating entities" << endl;
     auto print_message = [&output_stream](string message) {
         output_stream << PrettyConsole::tab << message << endl;
     };
+
     shared_ptr<Entity> entity_a =
         GenericProtocol::createEntity("Aroeira", print_message);
     output_stream << endl;
     shared_ptr<Entity> entity_b =
         GenericProtocol::createEntity("Baobá", print_message);
+
     output_stream << endl;
     cout << output_stream.str();
     output_stream.str("");
@@ -99,7 +106,10 @@ void GenericProtocol::run() {
     output_stream << "01. GENERIC PROTOCOL" << endl << endl;
 
     unique_ptr<Network> network = createNetwork(output_stream, uuid_generator);
-    auto [entity_a, entity_b] = createEntities(output_stream);
+
+    map<pair<shared_ptr<Entity>, shared_ptr<Entity>>, Connection> connections;
+
+    auto [entity_a, entity_b] = createEntities(connections, output_stream);
     connectEntitiesToNetwork(*network, entity_a, entity_b, output_stream);
 
     // Establish connection between entities
@@ -127,14 +137,32 @@ void GenericProtocol::run() {
 
 /* Static methods */
 
+// TODO: Refactor this method to use the Entity constructor
 shared_ptr<Entity> GenericProtocol::createEntity(
-    string name, function<void(string)> print_message) {
-    shared_ptr<Entity> entity = make_unique<Entity>(name, uuid_generator);
-    print_message(entity->getName() + " [" + to_string(entity->getId()) + "]");
-    entity->printStorage({[&print_message](string message) {
+    string name,
+    map<pair<shared_ptr<Entity>, shared_ptr<Entity>>, Connection> &connections,
+    function<void(string)> print_message) {
+    Entity entity(
+        uuid_generator->operator()(), name,
+        [&connections](uuids::uuid target_id, uuids::uuid message_id,
+                       ConnectionStep step) {
+            Connection::connect(connections, source, target_id, message_id,
+                                step);
+        },
+        [&connections](uuids::uuid target_id) {
+            Connection::removeConnection(connections, target_id);
+        },
+        [&connections](uuids::uuid target_id, ConnectionStep step) {
+            return Connection::isConnectedAtStep(connections, entity_id, step);
+        });
+
+    shared_ptr<Entity> entity_ptr = make_shared<Entity>(entity);
+    print_message(entity_ptr->getName() + " [" +
+                  to_string(entity_ptr->getId()) + "]");
+    entity_ptr->printStorage({[&print_message](string message) {
         print_message(PrettyConsole::tab + message);
     }});
-    return entity;
+    return entity_ptr;
 }
 
 void GenericProtocol::sendMessage(shared_ptr<Entity> source,

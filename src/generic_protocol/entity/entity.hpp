@@ -3,14 +3,16 @@
 
 #include <uuid.h>
 
+#include <functional>
 #include <memory>
 #include <message.hpp>
 #include <optional>
 #include <pretty_console.hpp>
 #include <string>
-#include <unordered_map>
 
 using namespace std;
+
+enum class ConnectionStep { NONE, SYN, ACK_SYN, ACK_ACK_SYN };
 
 class Entity {
    public:
@@ -34,12 +36,6 @@ class Entity {
     };
 
    private:
-    struct Connection {
-        optional<uuids::uuid> syn_message_id;
-        optional<uuids::uuid> ack_syn_message_id;
-        optional<uuids::uuid> ack_ack_syn_message_id;
-    };
-
     struct MessageConsequence {
         bool should_send_message;
         bool should_lock_entity;
@@ -49,16 +45,20 @@ class Entity {
     string name;
     string storage;
 
-    unordered_map<uuids::uuid, shared_ptr<Connection>> connections;
+    function<void(uuids::uuid target_entity_id, uuids::uuid message_id,
+                  ConnectionStep step)>
+        connect;
+    function<void(uuids::uuid target_entity_id)> remove_connection;
+    function<bool(uuids::uuid target_entity_id, ConnectionStep step)>
+        is_connected_at_step;
+
     optional<Message> last_unacknowledged_message;
 
     /* Methods */
+
     void printInformation(
         string information, ostream &output_stream,
         PrettyConsole::Color color = PrettyConsole::Color::DEFAULT) const;
-    optional<Connection> getConnection(uuids::uuid entity_id) const;
-    bool isConnectedTo(uuids::uuid entity_id) const;
-    bool canReceiveDataFrom(uuids::uuid entity_id) const;
 
     Response receiveSynMessage(
         const Message &message,
@@ -87,9 +87,22 @@ class Entity {
 
    public:
     /* Construction */
-    Entity(string name,
-           shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    ~Entity();
+    Entity(uuids::uuid id, string name,
+           function<void(uuids::uuid target_entity_id, uuids::uuid message_id,
+                         ConnectionStep step)>
+               connect,
+           function<void(uuids::uuid target_entity_id)> remove_connection,
+           function<bool(uuids::uuid target_entity_id, ConnectionStep step)>
+               is_connected_at_step)
+        : id(id),
+          name(name),
+          storage(""),
+          connect(connect),
+          remove_connection(remove_connection),
+          is_connected_at_step(is_connected_at_step),
+          last_unacknowledged_message(nullopt) {}
+
+    ~Entity() {}
 
     /* Getters */
     uuids::uuid getId() const;

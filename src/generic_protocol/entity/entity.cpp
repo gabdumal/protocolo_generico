@@ -8,37 +8,11 @@
 
 using namespace std;
 
-/* Construction */
-
-Entity::Entity(string name,
-               shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    this->id = (*uuid_generator)();
-    this->setName(name);
-    this->storage = "";
-    this->connections = unordered_map<uuids::uuid, shared_ptr<Connection>>();
-    this->last_unacknowledged_message = nullopt;
-}
-
-Entity::~Entity() {}
-
 /* Getters */
 
 uuids::uuid Entity::getId() const { return this->id; }
 
 string Entity::getName() const { return this->name; }
-
-optional<Entity::Connection> Entity::getConnection(
-    uuids::uuid entity_id) const {
-    auto connection = this->connections.find(entity_id);
-    if (connection != this->connections.end()) {
-        return *connection->second;
-    }
-    return nullopt;
-}
-
-bool Entity::isConnectedTo(uuids::uuid entity_id) const {
-    return this->connections.find(entity_id) != this->connections.end();
-}
 
 /* Setters */
 
@@ -59,20 +33,13 @@ bool Entity::canSendMessage(uuids::uuid message_id) const {
     return true;
 }
 
-bool Entity::canReceiveDataFrom(uuids::uuid entity_id) const {
-    auto connection = this->connections.find(entity_id);
-    return connection != this->connections.end() &&
-           connection->second->ack_ack_syn_message_id.has_value();
-}
-
 Entity::MessageConsequence Entity::getSendingMessageConsequence(
     const Message &message) const {
     if (message.getCode() == Message::Code::NACK) {
         return {false, false};
     }
-    auto connection_container =
-        this->getConnection(message.getTargetEntityId());
-    if (connection_container.has_value()) {
+    if (this->is_connected_at_step(message.getSourceEntityId(),
+                                   ConnectionStep::ACK_ACK_SYN)) {
         return MessageConsequence{true, true};
     } else {
         if (message.getCode() == Message::Code::SYN)
@@ -136,23 +103,12 @@ void Entity::printMessageInformation(const Message &message,
                 ? uuids::to_string(last_unacknowledged_message_id.value())
                 : "N/A";
 
-        uuids::uuid target_entity_id = message.getTargetEntityId();
-        auto connection = this->getConnection(target_entity_id);
-        auto last_received_message_id = connection.has_value()
-                                            ? connection->ack_ack_syn_message_id
-                                            : nullopt;
-        string last_received_message_id_as_string =
-            last_received_message_id.has_value()
-                ? uuids::to_string(last_received_message_id.value())
-                : "N/A";
-
         string operation =
             is_sending ? "Trying to send message\n" : "Received message\n";
         string information = "Last unacknowledged message ID: [" +
                              last_unacknowledged_message_id_as_string + "]\n" +
-                             "Last received message ID: [" +
-                             last_received_message_id_as_string + "]\n" +
-                             operation + message_content.str();
+                             "Last received message ID: [" + operation +
+                             message_content.str();
 
         this->printInformation(information, cout,
                                is_sending ? PrettyConsole::Color::YELLOW
