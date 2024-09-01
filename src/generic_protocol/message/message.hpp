@@ -2,38 +2,28 @@
 #define _MESSAGE_HPP
 
 #include <uuid.h>
-#include <string>
+
 #include <memory>
+#include <string>
 
 using namespace std;
 
-enum Code
-{
-    SYN,
-    FIN,
-    ACK,
-    NACK,
-    DATA
-};
+enum Code { SYN, FIN, ACK, NACK, DATA };
 
-class Message
-{
-private:
+class Message {
+   private:
     uuids::uuid id;
-    uuids::uuid sourceEntityId;
-    uuids::uuid targetEntityId;
+    uuids::uuid source_entity_id;
+    uuids::uuid target_entity_id;
     string content;
     bool corrupted;
     Code code;
 
-public:
+   public:
     /* Construction */
-    Message(
-        shared_ptr<uuids::uuid_random_generator> uuidGenerator,
-        uuids::uuid sourceEntityId,
-        uuids::uuid targetEntityId,
-        string content,
-        Code code = Code::DATA);
+    Message(shared_ptr<uuids::uuid_random_generator> uuid_generator,
+            uuids::uuid source_entity_id, uuids::uuid target_entity_id,
+            string content, Code code = Code::DATA);
     ~Message();
 
     /* Getters */
@@ -45,10 +35,10 @@ public:
     Code getCode() const;
 
     /* Setters */
-    void setCorrupted(bool isCorrupted);
+    void setCorrupted(bool is_corrupted);
 
     /* Methods */
-    void print(function<void(string)> printMessage) const;
+    void print(function<void(string)> print_message) const;
 };
 
-#endif // _MESSAGE_HPP
+#endif  // _MESSAGE_HPP

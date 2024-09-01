@@ -6,11 +6,13 @@
 
 using namespace std;
 
-constexpr char TAB[] = "    ";
-
-namespace Util
-{
-    void printInformation(string header, string information, ostream &outputStream = cout, PrettyConsole::Decoration header_decoration = PrettyConsole::Decoration(), PrettyConsole::Decoration information_decoration = PrettyConsole::Decoration());
+namespace Util {
+    void printInformation(string header, string information,
+                          ostream &output_stream = cout,
+                          PrettyConsole::Decoration header_decoration =
+                              PrettyConsole::Decoration(),
+                          PrettyConsole::Decoration information_decoration =
+                              PrettyConsole::Decoration());
 }
 
-#endif // UTIL_HPP_
+#endif  // UTIL_HPP_
