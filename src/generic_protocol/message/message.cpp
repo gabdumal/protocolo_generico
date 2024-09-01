@@ -6,7 +6,7 @@
 using namespace std;
 
 /* Auxiliary */
-string codeToString(Message::Code code) {
+string Message::codeToString(Message::Code code) {
     switch (code) {
         case Message::Code::SYN:
             return "SYN";
@@ -86,6 +86,20 @@ optional<uuids::uuid> Message::getIdFromMessageBeingAcknowledged() const {
     if (this->code == Message::Code::ACK) {
         string content = Util::getLineContent(2, this->content);
         return uuids::uuid::from_string(content);
+    }
+    return nullopt;
+}
+
+optional<Message::AckType> Message::getAckType() const {
+    if (this->code == Message::Code::ACK) {
+        string first_line = Util::getLineContent(1, this->content);
+        if (first_line == "ACK-SYN") {
+            return Message::AckType::ACK_SYN;
+        } else if (first_line == "ACK-ACK-SYN") {
+            return Message::AckType::ACK_ACK_SYN;
+        } else {
+            return Message::AckType::ACK;
+        }
     }
     return nullopt;
 }

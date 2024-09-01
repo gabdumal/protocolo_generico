@@ -4,6 +4,8 @@
 #include <pretty_console.hpp>
 #include <sstream>
 
+#include "message.hpp"
+
 using namespace std;
 
 /* Static members */
@@ -112,11 +114,11 @@ void GenericProtocol::run() {
                               // "Fragment 5",
                               "Fragment 6"};
 
-    for (string content : contents) {
-        GenericProtocol::sendMessage(entity_a, entity_b, content,
-                                     Message::Code::DATA, *network,
-                                     output_stream);
-    }
+    // for (string content : contents) {
+    //     GenericProtocol::sendMessage(entity_a, entity_b, content,
+    //                                  Message::Code::DATA, *network,
+    //                                  output_stream);
+    // }
 
     printEntitiesStorage(entity_a, entity_b, output_stream);
     network->joinThreads();
@@ -165,7 +167,8 @@ void GenericProtocol::printSendingMessageHeader(shared_ptr<Entity> source,
                   << target->getId() << "]" << endl;
     output_stream << PrettyConsole::tab
                   << "Message content: " << message_content << endl;
-    output_stream << PrettyConsole::tab << "Message code: " << message_code
+    output_stream << PrettyConsole::tab
+                  << "Message code: " << Message::codeToString(message_code)
                   << endl;
     output_stream << PrettyConsole::tab << "Network: " << network.getName()
                   << endl;

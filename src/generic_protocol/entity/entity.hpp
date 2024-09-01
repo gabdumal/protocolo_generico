@@ -20,6 +20,11 @@ class Entity {
         optional<uuids::uuid> ack_ack_syn_message_id;
     };
 
+    struct MessageConsequence {
+        bool should_send_message;
+        bool should_lock_entity;
+    };
+
     uuids::uuid id;
     string name;
     string storage;
@@ -57,6 +62,8 @@ class Entity {
         const Message &message,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
 
+    bool processMessageBeingSent(Message &message);
+
    public:
     struct Response {
         optional<Message> message;
@@ -78,10 +85,15 @@ class Entity {
     /* Methods */
     bool canSendMessage(uuids::uuid message_id) const;
     bool sendMessage(Message &message);
+    void printMessageSendingInformation(Message &message,
+                                        ostream &output_stream,
+                                        PrettyConsole::Color color) const;
     Response receiveMessage(
         const Message &message,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
     void printStorage(function<void(string)> print_message) const;
+    MessageConsequence getSendingMessageConsequence(
+        const Message &message) const;
 };
 
 #endif  // _ENTITY_HPP

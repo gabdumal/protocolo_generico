@@ -10,7 +10,10 @@ using namespace std;
 
 class Message {
    public:
-    enum Code { SYN, FIN, ACK, NACK, DATA };
+    enum class Code { SYN, FIN, ACK, NACK, DATA };
+    enum class AckType { ACK, ACK_SYN, ACK_ACK_SYN };
+
+    static string codeToString(Code code);
 
    private:
     uuids::uuid id;
@@ -35,6 +38,7 @@ class Message {
     bool isCorrupted() const;
     Code getCode() const;
     optional<uuids::uuid> getIdFromMessageBeingAcknowledged() const;
+    optional<AckType> getAckType() const;
 
     /* Setters */
     void setCorrupted(bool is_corrupted);

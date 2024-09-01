@@ -2,6 +2,7 @@
 
 #include <generic_protocol_constants.hpp>
 
+#include "message.hpp"
 #include "util.hpp"
 
 using namespace std;
@@ -76,7 +77,9 @@ bool Entity::canReceiveDataFrom(uuids::uuid entity_id) const {
            connection->second->ack_ack_syn_message_id.has_value();
 }
 
-bool Entity::sendMessage(Message &message) {
+void Entity::printMessageSendingInformation(Message &message,
+                                            ostream &output_stream,
+                                            PrettyConsole::Color color) const {
     if (GenericProtocolConstants::debug_information) {
         ostringstream message_content;
         message.print([&message_content](string line) {
@@ -101,19 +104,76 @@ bool Entity::sendMessage(Message &message) {
 
         this->printInformation(information, cout, PrettyConsole::Color::YELLOW);
     }
+}
 
+bool Entity::sendMessage(Message &message) {
     if (!canSendMessage(message.getId())) return false;
 
-    if (isConnectedTo(message.getTargetEntityId())) {
+    // if (isConnectedTo(message.getTargetEntityId())) {
+    //     if (message.getCode() == Message::Code::ACK) {
+    //         auto ack_type_container = message.getAckType();
+    //         if (ack_type_container.has_value()) {
+    //             auto ack_type = ack_type_container.value();
+    //             if (ack_type == Message::AckType::ACK_ACK_SYN) {
+    //                 return true;
+    //             }
+    //         }
+    //     }
+    //     this->last_unacknowledged_message = message;
+    //     return true;
+    // } else if (message.getCode() == Message::Code::SYN) {
+    //     this->last_unacknowledged_message = message;
+    //     return true;
+    // }
+
+    auto [should_send_message, should_lock_entity] =
+        this->getSendingMessageConsequence(message);
+
+    if (should_lock_entity) {
         this->last_unacknowledged_message = message;
-        return true;
-    } else if (message.getCode() == Message::Code::SYN) {
-        this->last_unacknowledged_message = message;
-        return true;
     }
 
-    return false;
+    return should_send_message;
+
+    // return false;
+
+    // return this->processMessageBeingSent(message);
 }
+
+bool Entity::processMessageBeingSent(Message &message) {
+    Message::Code code = message.getCode();
+
+    auto [should_send_message, should_lock_entity] =
+        this->getSendingMessageConsequence(message);
+
+    if (should_lock_entity) {
+        this->last_unacknowledged_message = message;
+    }
+
+    return should_send_message;
+}
+
+Entity::MessageConsequence Entity::getSendingMessageConsequence(
+    const Message &message) const {
+    if (isConnectedTo(message.getTargetEntityId())) {
+        if (message.getCode() == Message::Code::ACK) {
+            auto ack_type_container = message.getAckType();
+            if (ack_type_container.has_value()) {
+                auto ack_type = ack_type_container.value();
+                if (ack_type == Message::AckType::ACK_ACK_SYN) {
+                    return MessageConsequence{true, false};
+                }
+            }
+        }
+        return MessageConsequence{true, true};
+    } else {
+        if (message.getCode() == Message::Code::SYN)
+            return MessageConsequence{true, true};
+    }
+
+    return {false, false};
+}
+
 Entity::Response Entity::receiveMessage(
     const Message &message,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
@@ -216,9 +276,11 @@ optional<Message> Entity::receiveAckMessage(
     const Message &message,
     optional<uuids::uuid> &id_from_message_being_acknowledged,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    string first_line = Util::getLineContent(1, message.getContent());
+    auto ack_type_container = message.getAckType();
     auto uuid_container = message.getIdFromMessageBeingAcknowledged();
 
+    if (!ack_type_container.has_value()) return nullopt;
+    Message::AckType ack_type = ack_type_container.value();
     if (uuid_container.has_value()) {
         uuids::uuid sent_message_id = uuid_container.value();
 
@@ -230,26 +292,25 @@ optional<Message> Entity::receiveAckMessage(
             this->last_unacknowledged_message = nullopt;
         }
 
-        if (first_line == "ACK-SYN")
+        if (ack_type == Message::AckType::ACK_SYN)
             return this->receiveAckSynMessage(message, sent_message_id,
                                               uuid_generator);
-        else if (first_line == "ACK-ACK-SYN")
+        else if (ack_type == Message::AckType::ACK_ACK_SYN)
             return this->receiveAckAckSynMessage(message, sent_message_id,
                                                  uuid_generator);
 
     } else {
-        if (first_line == "ACK-SYN")
+        if (ack_type == Message::AckType::ACK_SYN)
             return Message(uuid_generator, this->id,
                            message.getSourceEntityId(),
                            "NACK-ACK-SYN\n" + to_string(message.getId()),
                            Message::Code::NACK);
-        else if (first_line == "ACK-ACK-SYN")
+        else if (ack_type == Message::AckType::ACK_ACK_SYN)
             return Message(uuid_generator, this->id,
                            message.getSourceEntityId(),
                            "NACK-ACK-ACK-SYN\n" + to_string(message.getId()),
                            Message::Code::NACK);
     }
-
     return nullopt;
 }
 

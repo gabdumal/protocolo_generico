@@ -226,6 +226,30 @@ void Network::joinThreads() {
 }
 
 void Network::registerMessageSending(Message message) {
+    auto source_entity_pair = this->entities.find(message.getSourceEntityId());
+    if (source_entity_pair == this->entities.end()) {
+        this->printInformation(
+            "Source entity [" + to_string(message.getSourceEntityId()) +
+                "] is not connected to the network " + this->getName() + "!",
+            cerr, PrettyConsole::Color::RED);
+    }
+    auto source_entity = source_entity_pair->second;
+
+    source_entity->printMessageSendingInformation(
+        message, cout, PrettyConsole::Color ::YELLOW);
+
+    auto [should_send_message, should_lock_entity] =
+        source_entity->getSendingMessageConsequence(message);
+
+    if (!should_lock_entity) return;
+
+    if (GenericProtocolConstants::debug_information) {
+        this->printInformation("Message [" + to_string(message.getId()) +
+                                   "] has been registered in the network " +
+                                   this->getName() + "!",
+                               cout, PrettyConsole::Color::GREEN);
+    }
+
     lock_guard<mutex> lock(this->messages_to_process_mutex);
     this->unconfirmed_messages.insert(
         {message.getId(), MessageSending(message)});
