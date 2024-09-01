@@ -45,12 +45,14 @@ class Entity {
     string name;
     string storage;
 
-    function<void(uuids::uuid target_entity_id, uuids::uuid message_id,
+    function<void(uuids::uuid source_entity_id, uuids::uuid target_entity_id,
+                  uuids::uuid message_id, ConnectionStep step)>
+        connect_function;
+    function<void(uuids::uuid source_entity_id, uuids::uuid target_entity_id)>
+        remove_connection_function;
+    function<bool(uuids::uuid source_entity_id, uuids::uuid target_entity_id,
                   ConnectionStep step)>
-        connect;
-    function<void(uuids::uuid target_entity_id)> remove_connection;
-    function<bool(uuids::uuid target_entity_id, ConnectionStep step)>
-        is_connected_at_step;
+        is_connected_at_step_function;
 
     optional<Message> last_unacknowledged_message;
 
@@ -88,19 +90,21 @@ class Entity {
    public:
     /* Construction */
     Entity(uuids::uuid id, string name,
-           function<void(uuids::uuid target_entity_id, uuids::uuid message_id,
+           function<void(uuids::uuid source_entity_id,
+                         uuids::uuid target_entity_id, uuids::uuid message_id,
                          ConnectionStep step)>
-               connect,
-           function<void(uuids::uuid target_entity_id)> remove_connection,
-           function<bool(uuids::uuid target_entity_id, ConnectionStep step)>
-               is_connected_at_step)
+               connect_function,
+           function<void(uuids::uuid source_entity_id,
+                         uuids::uuid target_entity_id)>
+               remove_connection_function,
+           function<bool(uuids::uuid source_entity_id,
+                         uuids::uuid target_entity_id, ConnectionStep step)>
+               is_connected_at_step_function)
         : id(id),
           name(name),
-          storage(""),
-          connect(connect),
-          remove_connection(remove_connection),
-          is_connected_at_step(is_connected_at_step),
-          last_unacknowledged_message(nullopt) {}
+          connect_function(connect_function),
+          remove_connection_function(remove_connection_function),
+          is_connected_at_step_function(is_connected_at_step_function) {}
 
     ~Entity() {}
 
@@ -124,6 +128,12 @@ class Entity {
     void printMessageInformation(const Message &message, ostream &output_stream,
                                  bool is_sending) const;
     void printStorage(function<void(string)> print_message) const;
+
+    void connect(uuids::uuid target_entity_id, uuids::uuid message_id,
+                 ConnectionStep step);
+    void removeConnection(uuids::uuid target_entity_id);
+    bool isConnectedAtStep(uuids::uuid target_entity_id,
+                           ConnectionStep step) const;
 };
 
 #endif  // _ENTITY_HPP

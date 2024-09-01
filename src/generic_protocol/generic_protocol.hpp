@@ -3,8 +3,8 @@
 
 #include <uuid.h>
 
+#include <list>
 #include <memory>
-#include <set>
 
 #include "./entity/entity.hpp"
 #include "./message/message.hpp"
@@ -34,9 +34,8 @@ class GenericProtocol {
 
     /* Static methods */
     static shared_ptr<Entity> createEntity(
-        string name,
-        map<pair<shared_ptr<Entity>, shared_ptr<Entity>>, Connection>
-            &connections,
+        string name, list<shared_ptr<Entity>> &entities,
+        map<pair<uuids::uuid, uuids::uuid>, shared_ptr<Connection>> connections,
         function<void(string)> print_message);
 
     static void sendMessage(shared_ptr<Entity> source,

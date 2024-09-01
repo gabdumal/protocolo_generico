@@ -1,12 +1,14 @@
 #include "generic_protocol.hpp"
 
 #include <iostream>
+#include <list>
 #include <map>
 #include <memory>
 #include <pretty_console.hpp>
 #include <sstream>
 #include <utility>
 
+#include "connection.hpp"
 #include "entity.hpp"
 #include "message.hpp"
 
@@ -34,18 +36,19 @@ unique_ptr<Network> createNetwork(
 }
 
 pair<shared_ptr<Entity>, shared_ptr<Entity>> createEntities(
-    map<pair<shared_ptr<Entity>, shared_ptr<Entity>>, Connection> &connections,
+    list<shared_ptr<Entity>> &entities,
+    map<pair<uuids::uuid, uuids::uuid>, shared_ptr<Connection>> connections,
     ostringstream &output_stream) {
     output_stream << "Creating entities" << endl;
     auto print_message = [&output_stream](string message) {
         output_stream << PrettyConsole::tab << message << endl;
     };
 
-    shared_ptr<Entity> entity_a =
-        GenericProtocol::createEntity("Aroeira", print_message);
+    shared_ptr<Entity> entity_a = GenericProtocol::createEntity(
+        "Aroeira", entities, connections, print_message);
     output_stream << endl;
-    shared_ptr<Entity> entity_b =
-        GenericProtocol::createEntity("Baobá", print_message);
+    shared_ptr<Entity> entity_b = GenericProtocol::createEntity(
+        "Baobá", entities, connections, print_message);
 
     output_stream << endl;
     cout << output_stream.str();
@@ -107,9 +110,11 @@ void GenericProtocol::run() {
 
     unique_ptr<Network> network = createNetwork(output_stream, uuid_generator);
 
-    map<pair<shared_ptr<Entity>, shared_ptr<Entity>>, Connection> connections;
+    map<pair<uuids::uuid, uuids::uuid>, shared_ptr<Connection>> connections;
 
-    auto [entity_a, entity_b] = createEntities(connections, output_stream);
+    list<shared_ptr<Entity>> entities;
+    auto [entity_a, entity_b] =
+        createEntities(entities, connections, output_stream);
     connectEntitiesToNetwork(*network, entity_a, entity_b, output_stream);
 
     // Establish connection between entities
@@ -139,21 +144,28 @@ void GenericProtocol::run() {
 
 // TODO: Refactor this method to use the Entity constructor
 shared_ptr<Entity> GenericProtocol::createEntity(
-    string name,
-    map<pair<shared_ptr<Entity>, shared_ptr<Entity>>, Connection> &connections,
+    string name, list<shared_ptr<Entity>> &entities,
+    map<pair<uuids::uuid, uuids::uuid>, shared_ptr<Connection>> connections,
     function<void(string)> print_message) {
+    make_shared<uuids::uuid>(GenericProtocol::uuid_generator->operator()());
+
     Entity entity(
-        uuid_generator->operator()(), name,
-        [&connections](uuids::uuid target_id, uuids::uuid message_id,
+        GenericProtocol::uuid_generator->operator()(), name,
+        [&connections](uuids::uuid source_entity_id,
+                       uuids::uuid target_entity_id, uuids::uuid message_id,
                        ConnectionStep step) {
-            Connection::connect(connections, source, target_id, message_id,
-                                step);
+            Connection::connect(connections, source_entity_id, target_entity_id,
+                                message_id, step);
         },
-        [&connections](uuids::uuid target_id) {
-            Connection::removeConnection(connections, target_id);
+        [&connections](uuids::uuid source_entity_id,
+                       uuids::uuid target_entity_id) {
+            Connection::removeConnection(connections, source_entity_id,
+                                         target_entity_id);
         },
-        [&connections](uuids::uuid target_id, ConnectionStep step) {
-            return Connection::isConnectedAtStep(connections, entity_id, step);
+        [&connections](uuids::uuid source_entity_id,
+                       uuids::uuid target_entity_id, ConnectionStep step) {
+            return Connection::isConnectedAtStep(connections, source_entity_id,
+                                                 target_entity_id, step);
         });
 
     shared_ptr<Entity> entity_ptr = make_shared<Entity>(entity);

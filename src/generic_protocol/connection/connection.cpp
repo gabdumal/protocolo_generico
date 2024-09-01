@@ -1,5 +1,9 @@
 #include "connection.hpp"
 
+#include <memory>
+
+#include "entity.hpp"
+
 using namespace std;
 
 bool Connection::isConnectedAtStep(ConnectionStep step) {
@@ -40,32 +44,35 @@ void Connection::removeConnection() {
 }
 
 bool Connection::isConnectedAtStep(
-    map<pair<shared_ptr<Entity>, shared_ptr<Entity>>, Connection> &connections,
-    shared_ptr<Entity> source, shared_ptr<Entity> target, ConnectionStep step) {
-    auto connection = connections.find(make_pair(source, target));
-    if (connection == connections.end()) {
+    map<pair<uuids::uuid, uuids::uuid>, shared_ptr<Connection>> connections,
+    uuids::uuid source_entity_id, uuids::uuid target_entity_id,
+    ConnectionStep step) {
+    pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
+    if (connections.find(key) == connections.end()) {
         return false;
     }
-    return connection->second.isConnectedAtStep(step);
+    shared_ptr<Connection> connection = connections[key];
+    return connection->isConnectedAtStep(step);
 }
 
 void Connection::connect(
-    map<pair<shared_ptr<Entity>, shared_ptr<Entity>>, Connection> &connections,
-    shared_ptr<Entity> source, shared_ptr<Entity> target,
+    map<pair<uuids::uuid, uuids::uuid>, shared_ptr<Connection>> connections,
+    uuids::uuid source_entity_id, uuids::uuid target_entity_id,
     uuids::uuid message_id, ConnectionStep step) {
-    auto connection = connections.find(make_pair(source, target));
-    if (connection == connections.end()) {
-        connections.insert(make_pair(make_pair(source, target), Connection()));
-        connection = connections.find(make_pair(source, target));
+    pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
+
+    if (connections.find(key) != connections.end()) {
+        shared_ptr<Connection> connection = connections[key];
+        connection->connect(message_id, step);
     }
-    connection->second.connect(message_id, step);
 }
 
 void Connection::removeConnection(
-    map<pair<shared_ptr<Entity>, shared_ptr<Entity>>, Connection> &connections,
-    shared_ptr<Entity> source, shared_ptr<Entity> target) {
-    auto connection = connections.find(make_pair(source, target));
-    if (connection != connections.end()) {
-        connection->second.removeConnection();
+    map<pair<uuids::uuid, uuids::uuid>, shared_ptr<Connection>> connections,
+    uuids::uuid source_entity_id, uuids::uuid target_entity_id) {
+    pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
+    if (connections.find(key) != connections.end()) {
+        shared_ptr<Connection> connection = connections[key];
+        connection->removeConnection();
     }
 }

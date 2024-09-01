@@ -20,6 +20,21 @@ void Entity::setName(string name) { this->name = name; }
 
 /* Methods */
 
+void Entity::connect(uuids::uuid target_entity_id, uuids::uuid message_id,
+                     ConnectionStep step) {
+    this->connect_function(this->id, target_entity_id, message_id, step);
+}
+
+void Entity::removeConnection(uuids::uuid target_entity_id) {
+    this->remove_connection_function(this->id, target_entity_id);
+}
+
+bool Entity::isConnectedAtStep(uuids::uuid target_entity_id,
+                               ConnectionStep step) const {
+    return this->is_connected_at_step_function(this->id, target_entity_id,
+                                               step);
+}
+
 bool Entity::canSendMessage(uuids::uuid message_id) const {
     // If there is no unacknowledged message, the entity can send a new message
     if (this->last_unacknowledged_message.has_value()) {
@@ -38,8 +53,8 @@ Entity::MessageConsequence Entity::getSendingMessageConsequence(
     if (message.getCode() == Message::Code::NACK) {
         return {false, false};
     }
-    if (this->is_connected_at_step(message.getSourceEntityId(),
-                                   ConnectionStep::ACK_ACK_SYN)) {
+    if (this->isConnectedAtStep(message.getSourceEntityId(),
+                                ConnectionStep::ACK_ACK_SYN)) {
         return MessageConsequence{true, true};
     } else {
         if (message.getCode() == Message::Code::SYN)
