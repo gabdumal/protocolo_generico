@@ -2,7 +2,7 @@
 
 #include "generic_protocol_constants.hpp"
 #include "message.hpp"
-#include "package/package.hpp"
+#include "package.hpp"
 #include "util.hpp"
 
 using namespace std;

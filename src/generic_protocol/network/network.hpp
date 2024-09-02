@@ -13,7 +13,7 @@
 #include <string>
 #include <thread>
 
-#include "../entity/entity.hpp"
+#include "entity.hpp"
 #include "generic_protocol_constants.hpp"
 #include "package.hpp"
 

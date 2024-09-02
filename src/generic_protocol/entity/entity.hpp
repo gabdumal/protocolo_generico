@@ -9,7 +9,7 @@
 #include <message.hpp>
 #include <pretty_console.hpp>
 
-#include "package/package.hpp"
+#include "package.hpp"
 
 using namespace std;
 

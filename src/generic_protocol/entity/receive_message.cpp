@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "entity.hpp"
-#include "package/package.hpp"
+#include "package.hpp"
 
 using namespace std;
 

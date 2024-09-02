@@ -10,5 +10,6 @@ Protocol::Protocol(shared_ptr<uuids::uuid_random_generator> uuid_generator) {
 Protocol::~Protocol() {}
 
 uuids::uuid Protocol::createEntity(string name) {
-    return this->uuid_generator->operator()();
+    uuids::uuid entity_id = this->uuid_generator->operator()();
+    return entity_id;
 }
