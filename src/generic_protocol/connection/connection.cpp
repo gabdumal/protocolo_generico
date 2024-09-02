@@ -45,9 +45,21 @@ void Connection::removeConnection() {
     this->last_data_message_id = nullopt;
 }
 
-bool Connection::canStoreData(uuids::uuid message_id) {
-    if (!this->last_data_message_id.has_value()) return true;
-    return this->last_data_message_id.value() == message_id;
+bool Connection::canStoreData(optional<uuids::uuid> message_id_container) {
+    if (this->last_data_message_id.has_value()) {
+        if (message_id_container.has_value()) {
+            return this->last_data_message_id.value() ==
+                   message_id_container.value();
+        } else {
+            return false;
+        }
+    } else {
+        if (message_id_container.has_value()) {
+            return false;
+        } else {
+            return true;
+        }
+    }
 }
 
 void Connection::setLastDataMessageId(uuids::uuid message_id) {
@@ -129,11 +141,11 @@ bool Connection::canStoreData(
     CanStoreDataFunctionParameters can_store_data_function_parameters) {
     if (connections_ptr == nullptr) return false;
 
-    tuple<uuids::uuid, uuids::uuid, uuids::uuid> parameters =
+    tuple<uuids::uuid, uuids::uuid, optional<uuids::uuid>> parameters =
         can_store_data_function_parameters;
     uuids::uuid source_entity_id = get<0>(parameters);
     uuids::uuid target_entity_id = get<1>(parameters);
-    uuids::uuid message_id = get<2>(parameters);
+    optional<uuids::uuid> message_id_container = get<2>(parameters);
 
     auto &connections = *connections_ptr;
     pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
@@ -143,7 +155,7 @@ bool Connection::canStoreData(
         auto is_fully_connected =
             connection->isConnectedAtStep(ConnectionStep::ACK_ACK_SYN);
         if (!is_fully_connected) return false;
-        auto can_store_data = connection->canStoreData(message_id);
+        auto can_store_data = connection->canStoreData(message_id_container);
         return can_store_data;
     }
 

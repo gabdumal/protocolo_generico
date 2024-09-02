@@ -41,7 +41,7 @@ class Network {
     unordered_map<uuids::uuid, shared_ptr<Entity>> entities;
     mutex entities_mutex;
 
-    map<uuids::uuid, MessageSending> unconfirmed_messages;
+    shared_ptr<map<uuids::uuid, MessageSending>> unconfirmed_messages;
     mutex unconfirmed_messages_mutex;
 
     thread message_sending_thread;
@@ -50,7 +50,7 @@ class Network {
                                          // message has been sent
     bool can_stop_sending_thread;
 
-    queue<Package> packages_to_process;
+    shared_ptr<queue<Package>> packages_to_process;
     mutex packages_to_process_mutex;
 
     thread processing_packages_thread;

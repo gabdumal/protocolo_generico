@@ -15,6 +15,8 @@ namespace Util {
                           PrettyConsole::Decoration information_decoration =
                               PrettyConsole::Decoration());
 
+    string getTextBetween(string text, optional<string> start,
+                          optional<string> end);
     string getLineContent(int line, string content);
 }  // namespace Util
 

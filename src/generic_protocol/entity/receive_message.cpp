@@ -181,23 +181,18 @@ Entity::Response Entity::receiveDataMessage(
 
     auto last_data_message_id_container = message.getLastDataMessageId();
 
-    if (last_data_message_id_container.has_value()) {
-        uuids::uuid last_data_message_id =
-            last_data_message_id_container.value();
+    if (this->canStoreData(
+            {message.getSourceEntityId(), last_data_message_id_container})) {
+        this->storage += message.getDataContent() + "\n";
 
-        if (this->canStoreData(
-                {message.getSourceEntityId(), last_data_message_id})) {
-            this->storage += message.getContent() + "\n";
+        this->setLastDataMessageId(
+            {message.getSourceEntityId(), message.getId()});
 
-            this->setLastDataMessageId(
-                {message.getSourceEntityId(), message.getId()});
+        Message ack_message(
+            uuid_generator, this->id, message.getSourceEntityId(),
+            "ACK\n" + to_string(message.getId()), Message::Code::ACK);
 
-            Message ack_message(
-                uuid_generator, this->id, message.getSourceEntityId(),
-                "ACK\n" + to_string(message.getId()), Message::Code::ACK);
-
-            return Response(ack_message, false, message.getId());
-        }
+        return Response(ack_message, false, message.getId());
     }
 
     return error_response;

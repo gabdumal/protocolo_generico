@@ -23,6 +23,12 @@ class GenericProtocol {
     static void printSendingMessageFooter(bool has_been_processed,
                                           ostringstream &output_stream);
 
+    static uuids::uuid sendMessage(shared_ptr<Entity> source,
+                                   shared_ptr<Entity> target,
+                                   string message_content,
+                                   Message::Code message_code, Network &network,
+                                   ostringstream &output_stream);
+
    public:
     /* Construction */
     GenericProtocol(shared_ptr<uuids::uuid_random_generator> uuid_generator);
@@ -36,11 +42,13 @@ class GenericProtocol {
         string name, EntitiesList &entities,
         ConnectionsMapPointer connections_ptr,
         function<void(string)> print_message);
-
-    static void sendMessage(shared_ptr<Entity> source,
-                            shared_ptr<Entity> target, string message_content,
-                            Message::Code message_code, Network &network,
-                            ostringstream &output_stream);
+    static void establishConnection(shared_ptr<Entity> source,
+                                    shared_ptr<Entity> target, Network &network,
+                                    ostringstream &output_stream);
+    static void sendDataMessages(shared_ptr<Entity> source,
+                                 shared_ptr<Entity> target,
+                                 deque<string> contents, Network &network,
+                                 ostringstream &output_stream);
 };
 
 #endif  // _GENERIC_PROTOCOL_HPP

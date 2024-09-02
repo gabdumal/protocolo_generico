@@ -40,6 +40,7 @@ class Message {
     optional<uuids::uuid> getIdFromMessageBeingAcknowledged() const;
     optional<AckType> getAckType() const;
     optional<uuids::uuid> getLastDataMessageId() const;
+    string getDataContent() const;
 
     /* Setters */
     void setCorrupted(bool is_corrupted);

@@ -9,6 +9,7 @@
 #include "connection.hpp"
 #include "entity.hpp"
 #include "message.hpp"
+#include "uuid.h"
 
 using namespace std;
 
@@ -115,19 +116,16 @@ void GenericProtocol::run() {
     connectEntitiesToNetwork(*network, entity_a, entity_b, output_stream);
 
     // Establish connection between entities
-    GenericProtocol::sendMessage(entity_a, entity_b, "SYN", Message::Code::SYN,
-                                 *network, output_stream);
+    GenericProtocol::establishConnection(entity_a, entity_b, *network,
+                                         output_stream);
 
-    deque<string> contents = {
-        // "Hello, Baobá!", "Fragment 1", "Fragment 2",
-        //                       "Fragment 3",    "Fragment 4", "Fragment 5",
-        "Fragment 6"};
+    // Send data messages
+    deque<string> contents = {"Hello, Baobá!", "Fragment 1", "Fragment 2",
+                              "Fragment 3",    "Fragment 4", "Fragment 5",
+                              "Fragment 6"};
 
-    for (string content : contents) {
-        GenericProtocol::sendMessage(entity_a, entity_b, content,
-                                     Message::Code::DATA, *network,
-                                     output_stream);
-    }
+    GenericProtocol::sendDataMessages(entity_a, entity_b, contents, *network,
+                                      output_stream);
 
     printEntitiesStorage(entity_a, entity_b, output_stream);
     network->joinThreads();
@@ -182,12 +180,14 @@ shared_ptr<Entity> GenericProtocol::createEntity(
             return apply(is_connected_at_step_lambda, params);
         });
 
-    auto can_store_data_lambda = [connections_ptr](uuids::uuid source_entity_id,
-                                                   uuids::uuid target_entity_id,
-                                                   uuids::uuid message_id) {
-        return Connection::canStoreData(
-            connections_ptr, {source_entity_id, target_entity_id, message_id});
-    };
+    auto can_store_data_lambda =
+        [connections_ptr](uuids::uuid source_entity_id,
+                          uuids::uuid target_entity_id,
+                          optional<uuids::uuid> message_id_container) {
+            return Connection::canStoreData(
+                connections_ptr,
+                {source_entity_id, target_entity_id, message_id_container});
+        };
     CanStoreDataFunction can_store_data_function = make_shared<function<bool(
         CanStoreDataFunctionParameters can_store_data_function_parameters)>>(
         [can_store_data_lambda](CanStoreDataFunctionParameters params) {
@@ -224,11 +224,12 @@ shared_ptr<Entity> GenericProtocol::createEntity(
     return entity;
 }
 
-void GenericProtocol::sendMessage(shared_ptr<Entity> source,
-                                  shared_ptr<Entity> target,
-                                  string message_content,
-                                  Message::Code message_code, Network &network,
-                                  ostringstream &output_stream) {
+uuids::uuid GenericProtocol::sendMessage(shared_ptr<Entity> source,
+                                         shared_ptr<Entity> target,
+                                         string message_content,
+                                         Message::Code message_code,
+                                         Network &network,
+                                         ostringstream &output_stream) {
     Message message = Message(uuid_generator, source->getId(), target->getId(),
                               message_content, message_code);
 
@@ -237,6 +238,8 @@ void GenericProtocol::sendMessage(shared_ptr<Entity> source,
 
     bool has_been_processed = network.receiveMessage(message);
     printSendingMessageFooter(has_been_processed, output_stream);
+
+    return message.getId();
 }
 
 void GenericProtocol::printSendingMessageHeader(shared_ptr<Entity> source,
@@ -274,4 +277,47 @@ void GenericProtocol::printSendingMessageFooter(bool has_been_processed,
     cout << output_stream.str();
     output_stream.str("");
     cout.flush();
+}
+
+void GenericProtocol::establishConnection(shared_ptr<Entity> source,
+                                          shared_ptr<Entity> target,
+                                          Network &network,
+                                          ostringstream &output_stream) {
+    output_stream << "Establishing connection" << endl;
+    output_stream << PrettyConsole::tab
+                  << "Source entity: " << source->getName() << " ["
+                  << source->getId() << "]" << endl;
+    output_stream << PrettyConsole::tab
+                  << "Target entity: " << target->getName() << " ["
+                  << target->getId() << "]" << endl;
+    output_stream << PrettyConsole::tab << "Network: " << network.getName()
+                  << endl
+                  << endl;
+
+    GenericProtocol::sendMessage(source, target, "SYN", Message::Code::SYN,
+                                 network, output_stream);
+
+    output_stream << PrettyConsole::tab << "Connection established!" << endl;
+    output_stream << endl;
+    cout << output_stream.str();
+    output_stream.str("");
+}
+
+void GenericProtocol::sendDataMessages(shared_ptr<Entity> source,
+                                       shared_ptr<Entity> target,
+                                       deque<string> contents, Network &network,
+                                       ostringstream &output_stream) {
+    optional<uuids::uuid> last_data_message_id_container = nullopt;
+
+    for (string content : contents) {
+        string structured_content =
+            (last_data_message_id_container.has_value()
+                 ? to_string(last_data_message_id_container.value())
+                 : "") +
+            "\n" + content;
+
+        last_data_message_id_container = GenericProtocol::sendMessage(
+            source, target, structured_content, Message::Code::DATA, network,
+            output_stream);
+    }
 }

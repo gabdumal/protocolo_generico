@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <string>
 
 using namespace std;
 
@@ -22,6 +23,24 @@ void Util::printInformation(string header, string information,
     intermediate_stream << endl;
 
     output_stream << intermediate_stream.str();
+}
+
+string Util::getTextBetween(string text, optional<string> start,
+                            optional<string> end) {
+    size_t start_position = 0;
+    if (start.has_value()) {
+        start_position = text.find(start.value());
+        if (start_position == string::npos) return "";
+        start_position += start.value().length();
+    }
+
+    size_t end_position = text.length();
+    if (end.has_value()) {
+        end_position = text.find(end.value(), start_position);
+        if (end_position == string::npos) return "";
+    }
+
+    return text.substr(start_position, end_position - start_position);
 }
 
 string Util::getLineContent(int line, string content) {

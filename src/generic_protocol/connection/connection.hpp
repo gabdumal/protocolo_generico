@@ -40,7 +40,7 @@ class Connection {
     void connect(uuids::uuid message_id, ConnectionStep step);
     void removeConnection();
     bool isConnectedAtStep(ConnectionStep step);
-    bool canStoreData(uuids::uuid message_id);
+    bool canStoreData(optional<uuids::uuid> message_id_container);
     void setLastDataMessageId(uuids::uuid message_id);
 
     /* Static Methods */

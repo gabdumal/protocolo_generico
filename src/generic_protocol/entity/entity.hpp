@@ -33,9 +33,10 @@ using IsConnectedAtStepFunction =
     shared_ptr<function<bool(IsConnectedAtStepFunctionParameters
                                  is_connected_at_step_function_parameters)>>;
 
-using InternalCanStoreDataFunctionParameters = tuple<uuids::uuid, uuids::uuid>;
+using InternalCanStoreDataFunctionParameters =
+    tuple<uuids::uuid, optional<uuids::uuid>>;
 using CanStoreDataFunctionParameters =
-    tuple<uuids::uuid, uuids::uuid, uuids::uuid>;
+    tuple<uuids::uuid, uuids::uuid, optional<uuids::uuid>>;
 using CanStoreDataFunction = shared_ptr<function<bool(
     CanStoreDataFunctionParameters can_store_data_function_parameters)>>;
 

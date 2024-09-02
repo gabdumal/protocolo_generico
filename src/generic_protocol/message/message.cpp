@@ -111,3 +111,10 @@ optional<uuids::uuid> Message::getLastDataMessageId() const {
     }
     return nullopt;
 }
+
+string Message::getDataContent() const {
+    if (this->code == Message::Code::DATA) {
+        return Util::getTextBetween(this->content, "\n", nullopt);
+    }
+    return "";
+}

@@ -2,6 +2,7 @@
 
 #include <generic_protocol_constants.hpp>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <pretty_console.hpp>
 
@@ -17,11 +18,14 @@ Network::Network(string name,
     this->uuid_generator = uuid_generator;
     this->name = name;
 
+    this->unconfirmed_messages =
+        make_shared<map<uuids::uuid, MessageSending>>();
     this->sending_messages_count = 0;
     this->can_stop_sending_thread = false;
     this->message_sending_thread =
         thread([this]() { this->sendingThreadJob(); });
 
+    this->packages_to_process = make_shared<queue<Package>>();
     this->processing_packages_count = 0;
     this->can_stop_processing_thread = false;
     this->processing_packages_thread =
@@ -206,7 +210,7 @@ void Network::finishMessageProcessing() {
 bool Network::insertPackageIntoProcessingQueue(Package package) {
     try {
         lock_guard<mutex> lock(this->packages_to_process_mutex);
-        this->packages_to_process.push(package);
+        this->packages_to_process->push(package);
         this->processing_packages_count++;
         this->package_processed_cv.notify_one();  // Notify the network thread
         return true;
@@ -263,7 +267,7 @@ void Network::registerPackage(Package package) {
     if (!should_be_confirmed) return;
 
     lock_guard<mutex> lock(this->unconfirmed_messages_mutex);
-    this->unconfirmed_messages.insert(
+    this->unconfirmed_messages->insert(
         {message.getId(), MessageSending(message)});
 }
 
@@ -319,15 +323,15 @@ void Network::tryToConfirmSomeMessage(
 
 void Network::removeMessageFromUnconfirmedMessages(uuids::uuid message_id) {
     lock_guard<mutex> lock(this->unconfirmed_messages_mutex);
-    auto it = this->unconfirmed_messages.find(message_id);
+    auto it = this->unconfirmed_messages->find(message_id);
 
-    if (it != this->unconfirmed_messages.end()) {
+    if (it != this->unconfirmed_messages->end()) {
         if (GenericProtocolConstants::debug_information) {
             this->printInformation(
                 "Message [" + to_string(message_id) + "] has been confirmed!",
                 cout, PrettyConsole::Color::GREEN);
         }
-        this->unconfirmed_messages.erase(it);
+        this->unconfirmed_messages->erase(it);
     }
 }
 
@@ -338,12 +342,12 @@ void Network::sendingThreadJob() {
         unique_lock<mutex> lock(this->unconfirmed_messages_mutex);
 
         // Finish job if there are no messages to send
-        if (this->can_stop_sending_thread && unconfirmed_messages.empty()) {
+        if (this->can_stop_sending_thread && unconfirmed_messages->empty()) {
             break;
         }
 
-        for (auto it = this->unconfirmed_messages.begin();
-             it != this->unconfirmed_messages.end();) {
+        for (auto it = this->unconfirmed_messages->begin();
+             it != this->unconfirmed_messages->end();) {
             MessageSending &message_sending = it->second;
 
             // Check if the timeout has expired
@@ -371,7 +375,7 @@ void Network::sendingThreadJob() {
                                 this->getName() + "!",
                             cout, PrettyConsole::Color::RED);
                     }
-                    it = this->unconfirmed_messages.erase(it);
+                    it = this->unconfirmed_messages->erase(it);
                 }
             } else {
                 it++;
@@ -390,13 +394,13 @@ void Network::processingThreadJob() {
         unique_lock<mutex> lock(this->packages_to_process_mutex);
 
         // Finish job if there are no messages to process
-        if (this->can_stop_processing_thread && packages_to_process.empty()) {
+        if (this->can_stop_processing_thread && packages_to_process->empty()) {
             break;
         }
 
-        if (!this->packages_to_process.empty()) {
-            auto package = this->packages_to_process.front();
-            this->packages_to_process.pop();
+        if (!this->packages_to_process->empty()) {
+            auto package = this->packages_to_process->front();
+            this->packages_to_process->pop();
             lock.unlock();
             this->processMessage(package);
             lock.lock();
