@@ -1,8 +1,6 @@
 #include "generic_protocol.hpp"
 
 #include <iostream>
-#include <list>
-#include <map>
 #include <memory>
 #include <pretty_console.hpp>
 #include <sstream>
@@ -36,8 +34,7 @@ unique_ptr<Network> createNetwork(
 }
 
 pair<shared_ptr<Entity>, shared_ptr<Entity>> createEntities(
-    list<shared_ptr<Entity>> &entities,
-    map<pair<uuids::uuid, uuids::uuid>, shared_ptr<Connection>> connections,
+    EntitiesList &entities, ConnectionsMap connections,
     ostringstream &output_stream) {
     output_stream << "Creating entities" << endl;
     auto print_message = [&output_stream](string message) {
@@ -110,9 +107,9 @@ void GenericProtocol::run() {
 
     unique_ptr<Network> network = createNetwork(output_stream, uuid_generator);
 
-    map<pair<uuids::uuid, uuids::uuid>, shared_ptr<Connection>> connections;
+    ConnectionsMap connections;
 
-    list<shared_ptr<Entity>> entities;
+    EntitiesList entities;
     auto [entity_a, entity_b] =
         createEntities(entities, connections, output_stream);
     connectEntitiesToNetwork(*network, entity_a, entity_b, output_stream);
@@ -144,37 +141,61 @@ void GenericProtocol::run() {
 
 // TODO: Refactor this method to use the Entity constructor
 shared_ptr<Entity> GenericProtocol::createEntity(
-    string name, list<shared_ptr<Entity>> &entities,
-    map<pair<uuids::uuid, uuids::uuid>, shared_ptr<Connection>> connections,
+    string name, EntitiesList &entities, ConnectionsMap &connections,
     function<void(string)> print_message) {
-    make_shared<uuids::uuid>(GenericProtocol::uuid_generator->operator()());
-
-    Entity entity(
-        GenericProtocol::uuid_generator->operator()(), name,
-        [&connections](uuids::uuid source_entity_id,
-                       uuids::uuid target_entity_id, uuids::uuid message_id,
-                       ConnectionStep step) {
-            Connection::connect(connections, source_entity_id, target_entity_id,
-                                message_id, step);
-        },
-        [&connections](uuids::uuid source_entity_id,
-                       uuids::uuid target_entity_id) {
-            Connection::removeConnection(connections, source_entity_id,
-                                         target_entity_id);
-        },
-        [&connections](uuids::uuid source_entity_id,
-                       uuids::uuid target_entity_id, ConnectionStep step) {
-            return Connection::isConnectedAtStep(connections, source_entity_id,
-                                                 target_entity_id, step);
+    auto connect_lambda = [&connections](uuids::uuid source_entity_id,
+                                         uuids::uuid target_entity_id,
+                                         uuids::uuid message_id,
+                                         ConnectionStep step) {
+        Connection::connect(connections, {source_entity_id, target_entity_id,
+                                          message_id, step});
+    };
+    ConnectFunction connect_function = make_shared<
+        function<void(ConnectFunctionParameters connect_function_parameters)>>(
+        [connect_lambda](ConnectFunctionParameters params) {
+            apply(connect_lambda, params);
         });
 
-    shared_ptr<Entity> entity_ptr = make_shared<Entity>(entity);
-    print_message(entity_ptr->getName() + " [" +
-                  to_string(entity_ptr->getId()) + "]");
-    entity_ptr->printStorage({[&print_message](string message) {
+    auto remove_connection_lambda = [&connections](
+                                        uuids::uuid source_entity_id,
+                                        uuids::uuid target_entity_id) {
+        Connection::removeConnection(connections,
+                                     {source_entity_id, target_entity_id});
+    };
+    RemoveConnectionFunction remove_connection_function =
+        make_shared<function<void(RemoveConnectionFunctionParameters
+                                      remove_connection_function_parameters)>>(
+            [remove_connection_lambda](
+                RemoveConnectionFunctionParameters params) {
+                apply(remove_connection_lambda, params);
+            });
+
+    auto is_connected_at_step_lambda =
+        [&connections](uuids::uuid source_entity_id,
+                       uuids::uuid target_entity_id, ConnectionStep step) {
+            return Connection::isConnectedAtStep(
+                connections, {source_entity_id, target_entity_id, step});
+        };
+    IsConnectedAtStepFunction is_connected_at_step_function = make_shared<
+        function<bool(IsConnectedAtStepFunctionParameters
+                          is_connected_at_step_function_parameters)>>(
+        [is_connected_at_step_lambda](
+            IsConnectedAtStepFunctionParameters params) {
+            return apply(is_connected_at_step_lambda, params);
+        });
+
+    shared_ptr<Entity> entity = make_shared<Entity>(
+        GenericProtocol::uuid_generator->operator()(), name, connect_function,
+        remove_connection_function, is_connected_at_step_function);
+
+    entities.push_back(entity);
+
+    print_message(entity->getName() + " [" + to_string(entity->getId()) + "]");
+    entity->printStorage({[&print_message](string message) {
         print_message(PrettyConsole::tab + message);
     }});
-    return entity_ptr;
+
+    return entity;
 }
 
 void GenericProtocol::sendMessage(shared_ptr<Entity> source,

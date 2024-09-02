@@ -33,20 +33,20 @@ Entity::Entity::Response Entity::receiveMessage(
 Entity::Response Entity::receiveSynMessage(
     const Message &message,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    if (this->isConnectedAtStep(message.getSourceEntityId(),
-                                ConnectionStep::NONE)) {
+    if (this->isConnectedAtStep(
+            {message.getSourceEntityId(), ConnectionStep::NONE})) {
         Message ack_syn_message(
             uuid_generator, this->id, message.getSourceEntityId(),
             "ACK-SYN\n" + to_string(message.getId()), Message::Code::ACK);
 
         // Still need to receive the ACK-ACK-SYN message
-        this->connect(message.getSourceEntityId(), message.getId(),
-                      ConnectionStep::SYN);
+        this->connect({message.getSourceEntityId(), message.getId(),
+                       ConnectionStep::SYN});
 
         return Entity::Response(ack_syn_message);
     } else {
-        if (this->isConnectedAtStep(message.getSourceEntityId(),
-                                    ConnectionStep::SYN))
+        if (this->isConnectedAtStep(
+                {message.getSourceEntityId(), ConnectionStep::SYN}))
             return Entity::Response();
 
         return Entity::Response{Message(
@@ -59,7 +59,9 @@ Entity::Response Entity::receiveSynMessage(
 Entity::Response Entity::receiveFinMessage(
     const Message &message,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    this->removeConnection(message.getSourceEntityId());
+    this->removeConnection({
+        message.getSourceEntityId(),
+    });
     return Response();
 }
 
@@ -116,8 +118,8 @@ Entity::Response Entity::receiveAckSynMessage(
         uuid_generator, this->id, message.getSourceEntityId(),
         "ACK-ACK-SYN\n" + to_string(message.getId()), Message::Code::ACK);
 
-    this->connect(message.getSourceEntityId(), message.getId(),
-                  ConnectionStep::ACK_SYN);
+    this->connect({message.getSourceEntityId(), message.getId(),
+                   ConnectionStep::ACK_SYN});
 
     return Response(ack_ack_syn_message);
 }
@@ -127,11 +129,11 @@ Entity::Response Entity::receiveAckAckSynMessage(
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
     uuids::uuid ack_syn_message_id = sent_message_id;
 
-    if (this->isConnectedAtStep(message.getSourceEntityId(),
-                                ConnectionStep::ACK_SYN)) {
+    if (this->isConnectedAtStep(
+            {message.getSourceEntityId(), ConnectionStep::ACK_SYN})) {
         // Update connection
-        this->connect(message.getSourceEntityId(), message.getId(),
-                      ConnectionStep::ACK_ACK_SYN);
+        this->connect({message.getSourceEntityId(), message.getId(),
+                       ConnectionStep::ACK_ACK_SYN});
 
         Message ack_ack_ack_syn_message(
             uuid_generator, this->id, message.getSourceEntityId(),
@@ -162,8 +164,8 @@ Entity::Response Entity::receiveNackMessage(
 Entity::Response Entity::receiveDataMessage(
     const Message &message,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    if (this->isConnectedAtStep(message.getSourceEntityId(),
-                                ConnectionStep::ACK_ACK_SYN)) {
+    if (this->isConnectedAtStep(
+            {message.getSourceEntityId(), ConnectionStep::ACK_ACK_SYN})) {
         this->storage += message.getContent() + "\n";
 
         return Response{

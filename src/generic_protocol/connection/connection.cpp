@@ -43,36 +43,56 @@ void Connection::removeConnection() {
     this->ack_ack_syn_message_id = nullopt;
 }
 
-bool Connection::isConnectedAtStep(
-    map<pair<uuids::uuid, uuids::uuid>, shared_ptr<Connection>> connections,
-    uuids::uuid source_entity_id, uuids::uuid target_entity_id,
-    ConnectionStep step) {
+void Connection::connect(
+    ConnectionsMap connections,
+    ConnectFunctionParameters connect_function_parameters) {
+    tuple<uuids::uuid, uuids::uuid, uuids::uuid, ConnectionStep> parameters =
+        connect_function_parameters;
+    uuids::uuid source_entity_id = get<0>(parameters);
+    uuids::uuid target_entity_id = get<1>(parameters);
+    uuids::uuid message_id = get<2>(parameters);
+    ConnectionStep step = get<3>(parameters);
+
     pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
     if (connections.find(key) == connections.end()) {
-        return false;
-    }
-    shared_ptr<Connection> connection = connections[key];
-    return connection->isConnectedAtStep(step);
-}
-
-void Connection::connect(
-    map<pair<uuids::uuid, uuids::uuid>, shared_ptr<Connection>> connections,
-    uuids::uuid source_entity_id, uuids::uuid target_entity_id,
-    uuids::uuid message_id, ConnectionStep step) {
-    pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
-
-    if (connections.find(key) != connections.end()) {
-        shared_ptr<Connection> connection = connections[key];
+        auto connection = connections[key];
         connection->connect(message_id, step);
+    } else {
+        auto connection = make_shared<Connection>();
+        connection->connect(message_id, step);
+        connections.insert({key, connection});
     }
 }
 
 void Connection::removeConnection(
-    map<pair<uuids::uuid, uuids::uuid>, shared_ptr<Connection>> connections,
-    uuids::uuid source_entity_id, uuids::uuid target_entity_id) {
+    ConnectionsMap connections,
+    RemoveConnectionFunctionParameters remove_connection_function_parameters) {
+    tuple<uuids::uuid, uuids::uuid> parameters =
+        remove_connection_function_parameters;
+    uuids::uuid source_entity_id = get<0>(parameters);
+    uuids::uuid target_entity_id = get<1>(parameters);
+
     pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
     if (connections.find(key) != connections.end()) {
-        shared_ptr<Connection> connection = connections[key];
+        auto connection = connections[key];
         connection->removeConnection();
+        connections.erase(key);
     }
+}
+bool Connection::isConnectedAtStep(
+    ConnectionsMap connections, IsConnectedAtStepFunctionParameters
+                                    is_connected_at_step_function_parameters) {
+    tuple<uuids::uuid, uuids::uuid, ConnectionStep> parameters =
+        is_connected_at_step_function_parameters;
+    uuids::uuid source_entity_id = get<0>(parameters);
+    uuids::uuid target_entity_id = get<1>(parameters);
+    ConnectionStep step = get<2>(parameters);
+
+    pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
+    if (connections.find(key) != connections.end()) {
+        auto connection = connections[key];
+        return connection->isConnectedAtStep(step);
+    }
+
+    return false;
 }

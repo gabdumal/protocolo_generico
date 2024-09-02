@@ -4,15 +4,34 @@
 #include <uuid.h>
 
 #include <functional>
+#include <list>
 #include <memory>
 #include <message.hpp>
-#include <optional>
 #include <pretty_console.hpp>
-#include <string>
 
 using namespace std;
 
 enum class ConnectionStep { NONE, SYN, ACK_SYN, ACK_ACK_SYN };
+
+using InternalConnectFunctionParameters =
+    tuple<uuids::uuid, uuids::uuid, ConnectionStep>;
+using ConnectFunctionParameters =
+    tuple<uuids::uuid, uuids::uuid, uuids::uuid, ConnectionStep>;
+using ConnectFunction = shared_ptr<
+    function<void(ConnectFunctionParameters connect_function_parameters)>>;
+
+using InternalRemoveConnectionFunctionParameters = tuple<uuids::uuid>;
+using RemoveConnectionFunctionParameters = tuple<uuids::uuid, uuids::uuid>;
+using RemoveConnectionFunction = shared_ptr<function<void(
+    RemoveConnectionFunctionParameters remove_connection_function_parameters)>>;
+
+using InternalIsConnectedAtStepFunctionParameters =
+    tuple<uuids::uuid, ConnectionStep>;
+using IsConnectedAtStepFunctionParameters =
+    tuple<uuids::uuid, uuids::uuid, ConnectionStep>;
+using IsConnectedAtStepFunction =
+    shared_ptr<function<bool(IsConnectedAtStepFunctionParameters
+                                 is_connected_at_step_function_parameters)>>;
 
 class Entity {
    public:
@@ -45,14 +64,9 @@ class Entity {
     string name;
     string storage;
 
-    function<void(uuids::uuid source_entity_id, uuids::uuid target_entity_id,
-                  uuids::uuid message_id, ConnectionStep step)>
-        connect_function;
-    function<void(uuids::uuid source_entity_id, uuids::uuid target_entity_id)>
-        remove_connection_function;
-    function<bool(uuids::uuid source_entity_id, uuids::uuid target_entity_id,
-                  ConnectionStep step)>
-        is_connected_at_step_function;
+    ConnectFunction connect_function;
+    RemoveConnectionFunction remove_connection_function;
+    IsConnectedAtStepFunction is_connected_at_step_function;
 
     optional<Message> last_unacknowledged_message;
 
@@ -89,22 +103,16 @@ class Entity {
 
    public:
     /* Construction */
-    Entity(uuids::uuid id, string name,
-           function<void(uuids::uuid source_entity_id,
-                         uuids::uuid target_entity_id, uuids::uuid message_id,
-                         ConnectionStep step)>
-               connect_function,
-           function<void(uuids::uuid source_entity_id,
-                         uuids::uuid target_entity_id)>
-               remove_connection_function,
-           function<bool(uuids::uuid source_entity_id,
-                         uuids::uuid target_entity_id, ConnectionStep step)>
-               is_connected_at_step_function)
+    Entity(uuids::uuid id, string name, ConnectFunction connect_function,
+           RemoveConnectionFunction remove_connection_function,
+           IsConnectedAtStepFunction is_connected_at_step_function)
         : id(id),
           name(name),
+          storage(""),
           connect_function(connect_function),
           remove_connection_function(remove_connection_function),
-          is_connected_at_step_function(is_connected_at_step_function) {}
+          is_connected_at_step_function(is_connected_at_step_function),
+          last_unacknowledged_message(nullopt) {}
 
     ~Entity() {}
 
@@ -129,11 +137,14 @@ class Entity {
                                  bool is_sending) const;
     void printStorage(function<void(string)> print_message) const;
 
-    void connect(uuids::uuid target_entity_id, uuids::uuid message_id,
-                 ConnectionStep step);
-    void removeConnection(uuids::uuid target_entity_id);
-    bool isConnectedAtStep(uuids::uuid target_entity_id,
-                           ConnectionStep step) const;
+    /* Connection */
+    void connect(InternalConnectFunctionParameters connect_function_parameters);
+    void removeConnection(InternalRemoveConnectionFunctionParameters
+                              remove_connection_function_parameters);
+    bool isConnectedAtStep(InternalIsConnectedAtStepFunctionParameters
+                               is_connected_at_step_function_parameters) const;
 };
+
+using EntitiesList = list<shared_ptr<Entity>>;
 
 #endif  // _ENTITY_HPP

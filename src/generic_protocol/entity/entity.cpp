@@ -18,22 +18,34 @@ string Entity::getName() const { return this->name; }
 
 void Entity::setName(string name) { this->name = name; }
 
+/* Connection */
+
+void Entity::connect(
+    InternalConnectFunctionParameters connect_function_parameters) {
+    ConnectFunctionParameters parameters = {
+        this->id, get<0>(connect_function_parameters),
+        get<1>(connect_function_parameters),
+        get<2>(connect_function_parameters)};
+    this->connect_function->operator()(parameters);
+}
+
+void Entity::removeConnection(InternalRemoveConnectionFunctionParameters
+                                  remove_connection_function_parameters) {
+    RemoveConnectionFunctionParameters parameters = {
+        this->id, get<0>(remove_connection_function_parameters)};
+    this->remove_connection_function->operator()(parameters);
+}
+
+bool Entity::isConnectedAtStep(
+    InternalIsConnectedAtStepFunctionParameters
+        is_connected_at_step_function_parameters) const {
+    IsConnectedAtStepFunctionParameters parameters = {
+        this->id, get<0>(is_connected_at_step_function_parameters),
+        get<1>(is_connected_at_step_function_parameters)};
+    return this->is_connected_at_step_function->operator()(parameters);
+}
+
 /* Methods */
-
-void Entity::connect(uuids::uuid target_entity_id, uuids::uuid message_id,
-                     ConnectionStep step) {
-    this->connect_function(this->id, target_entity_id, message_id, step);
-}
-
-void Entity::removeConnection(uuids::uuid target_entity_id) {
-    this->remove_connection_function(this->id, target_entity_id);
-}
-
-bool Entity::isConnectedAtStep(uuids::uuid target_entity_id,
-                               ConnectionStep step) const {
-    return this->is_connected_at_step_function(this->id, target_entity_id,
-                                               step);
-}
 
 bool Entity::canSendMessage(uuids::uuid message_id) const {
     // If there is no unacknowledged message, the entity can send a new message
@@ -53,8 +65,8 @@ Entity::MessageConsequence Entity::getSendingMessageConsequence(
     if (message.getCode() == Message::Code::NACK) {
         return {false, false};
     }
-    if (this->isConnectedAtStep(message.getSourceEntityId(),
-                                ConnectionStep::ACK_ACK_SYN)) {
+    if (this->isConnectedAtStep(
+            {message.getSourceEntityId(), ConnectionStep::NONE})) {
         return MessageConsequence{true, true};
     } else {
         if (message.getCode() == Message::Code::SYN)
@@ -122,8 +134,7 @@ void Entity::printMessageInformation(const Message &message,
             is_sending ? "Trying to send message\n" : "Received message\n";
         string information = "Last unacknowledged message ID: [" +
                              last_unacknowledged_message_id_as_string + "]\n" +
-                             "Last received message ID: [" + operation +
-                             message_content.str();
+                             operation + message_content.str();
 
         this->printInformation(information, cout,
                                is_sending ? PrettyConsole::Color::YELLOW

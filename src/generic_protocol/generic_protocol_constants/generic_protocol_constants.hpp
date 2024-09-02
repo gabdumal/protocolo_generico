@@ -12,7 +12,7 @@ namespace GenericProtocolConstants {
     constexpr float packet_corruption_probability = 0;
     constexpr int network_latency = 1000;
 
-    constexpr int max_attempts_to_send_message = 10;
+    constexpr int max_attempts_to_send_message = 1;
     static constexpr auto resend_timeout = chrono::seconds(5);
     constexpr int interval_to_check_unconfirmed_messages = 100;
 }  // namespace GenericProtocolConstants
