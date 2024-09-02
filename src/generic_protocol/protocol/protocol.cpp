@@ -4,6 +4,8 @@
 
 using namespace std;
 
+/* Construction */
+
 Protocol::Protocol(shared_ptr<uuids::uuid_random_generator> uuid_generator) {
     this->uuid_generator = uuid_generator;
     this->entities = make_shared<EntitiesList>();
@@ -11,6 +13,19 @@ Protocol::Protocol(shared_ptr<uuids::uuid_random_generator> uuid_generator) {
 }
 
 Protocol::~Protocol() {}
+
+/* Getters */
+
+shared_ptr<Entity> Protocol::getEntityById(uuids::uuid entity_id) {
+    for (auto entity : *this->entities) {
+        if (entity->getId() == entity_id) {
+            return entity;
+        }
+    }
+    return nullptr;
+}
+
+/* Methods */
 
 uuids::uuid Protocol::createEntity(string name, ostringstream &output_stream) {
     uuids::uuid entity_id = this->uuid_generator->operator()();
@@ -97,7 +112,36 @@ uuids::uuid Protocol::createEntity(string name, ostringstream &output_stream) {
     return entity_id;
 }
 
+void Protocol::sendData(uuids::uuid source_entity_id,
+                        uuids::uuid target_entity_id, deque<string> contents,
+                        ostringstream &output_stream) {
+    shared_ptr<Entity> source_entity = this->getEntityById(source_entity_id);
+    shared_ptr<Entity> target_entity = this->getEntityById(target_entity_id);
+    if (source_entity == nullptr) {
+        printMessage("Source entity not found", output_stream);
+        return;
+    }
+    if (target_entity == nullptr) {
+        printMessage("Target entity not found", output_stream);
+        return;
+    }
+
+    
+}
+
 /* Static methods */
 void Protocol::printMessage(string message, ostringstream &output_stream) {
     output_stream << message << endl;
+}
+
+void Protocol::printEntitiesStorage(ostringstream &output_stream) {
+    output_stream << "Entities' storage" << endl;
+
+    for (auto entity : *this->entities) {
+        output_stream << entity->getName() << " [" << entity->getId() << "]"
+                      << endl;
+        entity->printStorage({[this, &output_stream](string message) {
+            this->printMessage(PrettyConsole::tab + message, output_stream);
+        }});
+    }
 }
