@@ -139,7 +139,6 @@ void GenericProtocol::run() {
 
 /* Static methods */
 
-// TODO: Refactor this method to use the Entity constructor
 shared_ptr<Entity> GenericProtocol::createEntity(
     string name, EntitiesList &entities, ConnectionsMapPointer connections_ptr,
     function<void(string)> print_message) {

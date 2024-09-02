@@ -9,8 +9,17 @@ using namespace std;
 
 class Connection;
 
-using ConnectionsMap =
-    map<pair<uuids::uuid, uuids::uuid>, shared_ptr<Connection>>;
+struct UuidPairComparator {
+    bool operator()(const pair<uuids::uuid, uuids::uuid>& lhs,
+                    const pair<uuids::uuid, uuids::uuid>& rhs) const {
+        // Compare the pairs regardless of the order of UUIDs
+        return (lhs.first < rhs.first && lhs.second < rhs.second) ||
+               (lhs.first < rhs.second && lhs.second < rhs.first);
+    }
+};
+
+using ConnectionsMap = map<pair<uuids::uuid, uuids::uuid>,
+                           shared_ptr<Connection>, UuidPairComparator>;
 using ConnectionsMapPointer = shared_ptr<ConnectionsMap>;
 
 class Connection {
