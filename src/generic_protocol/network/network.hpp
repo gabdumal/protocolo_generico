@@ -84,7 +84,7 @@ class Network {
     void simulatePacketCorruption(Message &message);
     void joinProcessingThread();
 
-    void sendMessage(Package package);
+    void sendPackage(Package &package);
     void finishMessageProcessing();
 
     void printInformation(

@@ -71,7 +71,7 @@ bool Network::receivePackage(Package package) {
     }
 
     this->registerPackage(package);
-    return this->insertPackageIntoProcessingQueue(package);
+    return this->preprocessPackage(package);
 }
 
 bool Network::preprocessPackage(Package package, int attempt) {
@@ -90,19 +90,16 @@ bool Network::preprocessPackage(Package package, int attempt) {
 }
 
 void Network::processMessage(Package package) {
-    auto message = package.message;
-    bool should_be_confirmed = package.should_be_confirmed;
-
     this->simulateNetworkLatency();
-    this->simulatePacketCorruption(message);
+    this->simulatePacketCorruption(package.message);
 
-    this->sendMessage(package);
+    this->sendPackage(package);
     this->finishMessageProcessing();
 }
 
 /* Operational */
 
-void Network::sendMessage(Package package) {
+void Network::sendPackage(Package &package) {
     auto message = package.message;
     bool should_be_confirmed = package.should_be_confirmed;
 

@@ -9,11 +9,11 @@ Entity::Entity::Response Entity::receiveMessage(
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
     this->printMessageInformation(message, cout, false);
 
-    if (message.isCorrupted())
-        return Response{
-            Message(uuid_generator, this->id, message.getSourceEntityId(),
-                    "NACK\n" + to_string(message.getId()), Message::Code::NACK),
-            false};
+    Message error_message(uuid_generator, this->id, message.getSourceEntityId(),
+                          "NACK\n" + to_string(message.getId()),
+                          Message::Code::NACK);
+
+    if (message.isCorrupted()) return Response(error_message, false, nullopt);
 
     switch (message.getCode()) {
         case Message::Code::SYN:
@@ -28,13 +28,19 @@ Entity::Entity::Response Entity::receiveMessage(
             return this->receiveDataMessage(message, uuid_generator);
     }
 
-    return Response();
+    return Response(error_message, false, message.getId());
 }
 
 Entity::Response Entity::receiveSynMessage(
     const Message &message,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
+    Message error_message(uuid_generator, this->id, message.getSourceEntityId(),
+                          "NACK-SYN\n" + to_string(message.getId()),
+                          Message::Code::NACK);
+    Response error_response(error_message, false, message.getId());
+
     if (!this->isConnectedAtStep(
+            // If there is no connection, create a new one
             {message.getSourceEntityId(), ConnectionStep::SYN})) {
         Message ack_syn_message(
             uuid_generator, this->id, message.getSourceEntityId(),
@@ -44,28 +50,31 @@ Entity::Response Entity::receiveSynMessage(
         this->connect({message.getSourceEntityId(), message.getId(),
                        ConnectionStep::SYN});
 
-        return Entity::Response(ack_syn_message, true);
+        return Entity::Response(ack_syn_message, true, message.getId());
+
     } else {
+        // If received a SYN message, but the connection is already established
         if (this->isConnectedAtStep(
                 {message.getSourceEntityId(), ConnectionStep::SYN}))
-            return Entity::Response();
-
-        return Entity::Response{
-            Message(uuid_generator, this->id, message.getSourceEntityId(),
-                    "NACK-SYN\n" + to_string(message.getId()),
-                    Message::Code::NACK),
-            false};
+            return Entity::Response{nullopt, false, message.getId()};
     }
+
+    return error_response;
 }
 
 // TODO: Implement 3-way handshake
 Entity::Response Entity::receiveFinMessage(
     const Message &message,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
+    Message error_message(uuid_generator, this->id, message.getSourceEntityId(),
+                          "NACK\n" + to_string(message.getId()),
+                          Message::Code::NACK);
+    Response error_response(error_message, false, message.getId());
+
     this->removeConnection({
         message.getSourceEntityId(),
     });
-    return Response();
+    return error_response;
 }
 
 Entity::Response Entity::receiveAckMessage(
@@ -74,18 +83,24 @@ Entity::Response Entity::receiveAckMessage(
     auto ack_type_container = message.getAckType();
     auto uuid_container = message.getIdFromMessageBeingAcknowledged();
 
-    if (!ack_type_container.has_value()) return Response();
+    Message error_message(uuid_generator, this->id, message.getSourceEntityId(),
+                          "NACK\n" + to_string(message.getId()),
+                          Message::Code::NACK);
+    Response error_response(error_message, false, message.getId());
+
+    if (!ack_type_container.has_value()) return error_response;
 
     Message::AckType ack_type = ack_type_container.value();
 
     if (uuid_container.has_value()) {
         uuids::uuid sent_message_id = uuid_container.value();
 
-        // Unlock the entity to send a new message
+        // Unlock this entity to send a new message
         if (this->last_unacknowledged_message.has_value() &&
             this->last_unacknowledged_message.value().getId() ==
-                sent_message_id)
+                sent_message_id) {
             this->last_unacknowledged_message = nullopt;
+        }
 
         if (ack_type == Message::AckType::ACK_SYN)
             return this->receiveAckSynMessage(message, sent_message_id,
@@ -95,30 +110,29 @@ Entity::Response Entity::receiveAckMessage(
             return this->receiveAckAckSynMessage(message, sent_message_id,
                                                  uuid_generator);
 
+        else
+            return Response(nullopt, false, message.getId());
+
     } else {
         if (ack_type == Message::AckType::ACK_SYN)
-            return Response{
+            error_response.message =
                 Message(uuid_generator, this->id, message.getSourceEntityId(),
                         "NACK-ACK-SYN\n" + to_string(message.getId()),
-                        Message::Code::NACK),
-                false};
+                        Message::Code::NACK);
 
         else if (ack_type == Message::AckType::ACK_ACK_SYN)
-            return Response{
+            error_response.message =
                 Message(uuid_generator, this->id, message.getSourceEntityId(),
                         "NACK-ACK-ACK-SYN\n" + to_string(message.getId()),
-                        Message::Code::NACK),
-                false};
+                        Message::Code::NACK);
     }
 
-    return Response();
+    return error_response;
 }
 
 Entity::Response Entity::receiveAckSynMessage(
     const Message &message, uuids::uuid sent_message_id,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    uuids::uuid syn_message_id = sent_message_id;
-
     Message ack_ack_syn_message(
         uuid_generator, this->id, message.getSourceEntityId(),
         "ACK-ACK-SYN\n" + to_string(message.getId()), Message::Code::ACK);
@@ -126,62 +140,54 @@ Entity::Response Entity::receiveAckSynMessage(
     this->connect({message.getSourceEntityId(), message.getId(),
                    ConnectionStep::ACK_SYN});
 
-    return Response(ack_ack_syn_message, true);
+    return Response(ack_ack_syn_message, true, message.getId());
 }
 
 Entity::Response Entity::receiveAckAckSynMessage(
     const Message &message, uuids::uuid sent_message_id,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    uuids::uuid ack_syn_message_id = sent_message_id;
-
     if (this->isConnectedAtStep(
             {message.getSourceEntityId(), ConnectionStep::ACK_SYN})) {
         // Update connection
         this->connect({message.getSourceEntityId(), message.getId(),
                        ConnectionStep::ACK_ACK_SYN});
 
-        Message ack_ack_ack_syn_message(
+        Message ack_message(
             uuid_generator, this->id, message.getSourceEntityId(),
-            "ACK-ACK-ACK-SYN\n" + to_string(message.getId()),
-            Message::Code::ACK);
-
-        return Response(ack_ack_ack_syn_message, false);
+            "ACK\n" + to_string(message.getId()), Message::Code::ACK);
+        return Response(ack_message, false, message.getId());
     }
 
-    return Response{
-        Message(uuid_generator, this->id, message.getSourceEntityId(),
-                "NACK-ACK-ACK-SYN\n" + to_string(message.getId()),
-                Message::Code::NACK),
-        false};
-}
-
-Entity::Response Entity::receiveAckAckAckSynMessage(
-    const Message &message, uuids::uuid sent_message_id,
-    shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    return Response();
+    Message error_message(uuid_generator, this->id, message.getSourceEntityId(),
+                          "NACK-ACK-ACK-SYN\n" + to_string(message.getId()),
+                          Message::Code::NACK);
+    Response error_response{error_message, false, message.getId()};
+    return error_response;
 }
 
 Entity::Response Entity::receiveNackMessage(
     const Message &message,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    return Response();
+    return Response({nullopt, false, message.getId()});
 }
 
 Entity::Response Entity::receiveDataMessage(
     const Message &message,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
+    Message error_message(uuid_generator, this->id, message.getSourceEntityId(),
+                          "NACK\n" + to_string(message.getId()),
+                          Message::Code::NACK);
+    Response error_response(error_message, false, message.getId());
+
     if (this->isConnectedAtStep(
             {message.getSourceEntityId(), ConnectionStep::ACK_ACK_SYN})) {
         this->storage += message.getContent() + "\n";
 
-        return Response{
-            Message(uuid_generator, this->id, message.getSourceEntityId(),
-                    "ACK\n" + to_string(message.getId()), Message::Code::ACK),
-            true};
+        return Response(
+            {Message(uuid_generator, this->id, message.getSourceEntityId(),
+                     "ACK\n" + to_string(message.getId()), Message::Code::ACK),
+             false, message.getId()});
     }
 
-    return Response{
-        Message(uuid_generator, this->id, message.getSourceEntityId(),
-                "NACK\n" + to_string(message.getId()), Message::Code::NACK),
-        false};
+    return error_response;
 }

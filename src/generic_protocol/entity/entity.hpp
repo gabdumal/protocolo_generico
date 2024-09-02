@@ -40,19 +40,8 @@ class Entity {
         bool should_be_confirmed;
         optional<uuids::uuid> id_from_message_possibly_acknowledged;
 
-        Response()
-            : message(nullopt),
-              should_be_confirmed(false),
-              id_from_message_possibly_acknowledged(nullopt) {}
-
-        Response(Message message, bool should_be_confirmed)
-            : message(message),
-              should_be_confirmed(should_be_confirmed),
-              id_from_message_possibly_acknowledged(nullopt) {}
-
-        Response(optional<Message> message,
-                 optional<uuids::uuid> id_from_message_possibly_acknowledged,
-                 bool should_be_confirmed)
+        Response(optional<Message> message, bool should_be_confirmed,
+                 optional<uuids::uuid> id_from_message_possibly_acknowledged)
             : message(message),
               should_be_confirmed(should_be_confirmed),
               id_from_message_possibly_acknowledged(
@@ -94,9 +83,6 @@ class Entity {
         const Message &message, uuids::uuid sent_message_id,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
     Response receiveAckAckSynMessage(
-        const Message &message, uuids::uuid sent_message_id,
-        shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    Response receiveAckAckAckSynMessage(
         const Message &message, uuids::uuid sent_message_id,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
     Response receiveNackMessage(
