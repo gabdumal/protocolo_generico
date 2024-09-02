@@ -2,7 +2,9 @@
 #define PROTOCOL_HPP_
 
 #include <deque>
+#include <sstream>
 
+#include "connection.hpp"
 #include "entity.hpp"
 #include "uuid.h"
 
@@ -13,7 +15,9 @@ class Protocol {
     shared_ptr<uuids::uuid_random_generator> uuid_generator;
     shared_ptr<EntitiesList> entities;
     // unique_ptr<Network> network;
-    // shared_ptr<ConnectionsMap> connections;
+    shared_ptr<ConnectionsMap> connections;
+
+    static void printMessage(string message, ostringstream &output_stream);
 
    public:
     /* Construction */
@@ -21,7 +25,7 @@ class Protocol {
     ~Protocol();
 
     /* Methods */
-    uuids::uuid createEntity(string name);
+    uuids::uuid createEntity(string name, ostringstream &output_stream);
     void sendData(uuids::uuid source_entity_id, uuids::uuid target_entity_id,
                   deque<string> contents);
 };

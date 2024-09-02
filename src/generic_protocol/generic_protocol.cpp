@@ -16,9 +16,14 @@ void GenericProtocol::run(
 
     output_stream << "01. GENERIC PROTOCOL" << endl << endl;
     cout << output_stream.str();
+    output_stream.str("");
 
     Protocol protocol(uuid_generator);
 
-    uuids::uuid entity_a = protocol.createEntity("Aroeira");
-    uuids::uuid entity_b = protocol.createEntity("Baobá");
+    uuids::uuid entity_a = protocol.createEntity("Aroeira", output_stream);
+    uuids::uuid entity_b = protocol.createEntity("Baobá", output_stream);
+
+    output_stream << endl;
+    cout << output_stream.str();
+    output_stream.str("");
 }
