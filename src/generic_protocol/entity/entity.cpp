@@ -47,6 +47,23 @@ bool Entity::isConnectedAtStep(
     return is_connected_at_step;
 }
 
+bool Entity::canStoreData(InternalCanStoreDataFunctionParameters
+                              can_store_data_function_parameters) const {
+    CanStoreDataFunctionParameters parameters = {
+        this->id, get<0>(can_store_data_function_parameters),
+        get<1>(can_store_data_function_parameters)};
+    auto can_store_data = this->can_store_data_function->operator()(parameters);
+    return can_store_data;
+}
+
+void Entity::setLastDataMessageId(InternalSetLastDataMessageIdFunctionParameters
+                                      set_last_data_message_id_parameters) {
+    SetLastDataMessageIdFunctionParameters parameters = {
+        this->id, get<0>(set_last_data_message_id_parameters),
+        get<1>(set_last_data_message_id_parameters)};
+    this->set_last_data_message_id_function->operator()(parameters);
+}
+
 /* Methods */
 
 bool Entity::canSendMessage(uuids::uuid message_id) const {
@@ -61,34 +78,6 @@ bool Entity::canSendMessage(uuids::uuid message_id) const {
     }
     return true;
 }
-
-// bool Entity::shouldBeConfirmed(Message &message) const {
-//     auto code = message.getCode();
-//     if (code == Message::Code::NACK) return false;
-//     auto is_connected_at_step = this->isConnectedAtStep(
-//         {message.getSourceEntityId(), ConnectionStep::SYN});
-//     if (is_connected_at_step)
-//         return true;
-//     else if (code == Message::Code::SYN)
-//         return true;
-//     return false;
-// }
-
-// Entity::MessageConsequence Entity::getSendingMessageConsequence(
-//     const Message &message) const {
-//     if (message.getCode() == Message::Code::NACK) {
-//         return {false, false};
-//     }
-//     if (this->isConnectedAtStep(
-//             {message.getSourceEntityId(), ConnectionStep::NONE})) {
-//         return MessageConsequence{true, true};
-//     } else {
-//         if (message.getCode() == Message::Code::SYN)
-//             return MessageConsequence{true, true};
-//     }
-
-//     return {false, false};
-// }
 
 bool Entity::sendMessage(Message message, bool should_be_confirmed) {
     if (!canSendMessage(message.getId())) return false;

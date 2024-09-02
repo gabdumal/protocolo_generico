@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "entity.hpp"
+#include "uuid.h"
 
 using namespace std;
 
@@ -41,6 +42,16 @@ void Connection::removeConnection() {
     this->syn_message_id = nullopt;
     this->ack_syn_message_id = nullopt;
     this->ack_ack_syn_message_id = nullopt;
+    this->last_data_message_id = nullopt;
+}
+
+bool Connection::canStoreData(uuids::uuid message_id) {
+    if (!this->last_data_message_id.has_value()) return true;
+    return this->last_data_message_id.value() == message_id;
+}
+
+void Connection::setLastDataMessageId(uuids::uuid message_id) {
+    this->last_data_message_id = message_id;
 }
 
 void Connection::connect(
@@ -88,6 +99,7 @@ void Connection::removeConnection(
         connections.erase(key);
     }
 }
+
 bool Connection::isConnectedAtStep(
     ConnectionsMapPointer connections_ptr,
     IsConnectedAtStepFunctionParameters
@@ -110,4 +122,50 @@ bool Connection::isConnectedAtStep(
     }
 
     return false;
+}
+
+bool Connection::canStoreData(
+    ConnectionsMapPointer connections_ptr,
+    CanStoreDataFunctionParameters can_store_data_function_parameters) {
+    if (connections_ptr == nullptr) return false;
+
+    tuple<uuids::uuid, uuids::uuid, uuids::uuid> parameters =
+        can_store_data_function_parameters;
+    uuids::uuid source_entity_id = get<0>(parameters);
+    uuids::uuid target_entity_id = get<1>(parameters);
+    uuids::uuid message_id = get<2>(parameters);
+
+    auto &connections = *connections_ptr;
+    pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
+
+    if (connections.find(key) != connections.end()) {
+        auto connection = connections[key];
+        auto is_fully_connected =
+            connection->isConnectedAtStep(ConnectionStep::ACK_ACK_SYN);
+        if (!is_fully_connected) return false;
+        auto can_store_data = connection->canStoreData(message_id);
+        return can_store_data;
+    }
+
+    return false;
+}
+
+void Connection::setLastDataMessageId(ConnectionsMapPointer connections_ptr,
+                                      SetLastDataMessageIdFunctionParameters
+                                          set_last_data_message_id_parameters) {
+    if (connections_ptr == nullptr) return;
+
+    tuple<uuids::uuid, uuids::uuid, uuids::uuid> parameters =
+        set_last_data_message_id_parameters;
+    uuids::uuid source_entity_id = get<0>(parameters);
+    uuids::uuid target_entity_id = get<1>(parameters);
+    uuids::uuid message_id = get<2>(parameters);
+
+    auto &connections = *connections_ptr;
+    pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
+
+    if (connections.find(key) != connections.end()) {
+        auto connection = connections[key];
+        connection->setLastDataMessageId(message_id);
+    }
 }

@@ -9,7 +9,7 @@ namespace GenericProtocolConstants {
     constexpr bool debug_information = true;
 
     constexpr float packet_loss_probability = 0;
-    constexpr float packet_corruption_probability = 0.1;
+    constexpr float packet_corruption_probability = 0;
     constexpr int network_latency = 1000;
 
     constexpr int max_attempts_to_send_message = 10;

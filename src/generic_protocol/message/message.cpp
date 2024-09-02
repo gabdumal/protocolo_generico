@@ -103,3 +103,11 @@ optional<Message::AckType> Message::getAckType() const {
     }
     return nullopt;
 }
+
+optional<uuids::uuid> Message::getLastDataMessageId() const {
+    if (this->code == Message::Code::DATA) {
+        string content = Util::getLineContent(1, this->content);
+        return uuids::uuid::from_string(content);
+    }
+    return nullopt;
+}

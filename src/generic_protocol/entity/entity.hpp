@@ -33,6 +33,20 @@ using IsConnectedAtStepFunction =
     shared_ptr<function<bool(IsConnectedAtStepFunctionParameters
                                  is_connected_at_step_function_parameters)>>;
 
+using InternalCanStoreDataFunctionParameters = tuple<uuids::uuid, uuids::uuid>;
+using CanStoreDataFunctionParameters =
+    tuple<uuids::uuid, uuids::uuid, uuids::uuid>;
+using CanStoreDataFunction = shared_ptr<function<bool(
+    CanStoreDataFunctionParameters can_store_data_function_parameters)>>;
+
+using InternalSetLastDataMessageIdFunctionParameters =
+    tuple<uuids::uuid, uuids::uuid>;
+using SetLastDataMessageIdFunctionParameters =
+    tuple<uuids::uuid, uuids::uuid, uuids::uuid>;
+using SetLastDataMessageIdFunction =
+    shared_ptr<function<void(SetLastDataMessageIdFunctionParameters
+                                 set_last_data_message_id_parameters)>>;
+
 class Entity {
    public:
     struct Response {
@@ -57,12 +71,13 @@ class Entity {
     uuids::uuid id;
     string name;
     string storage;
+    optional<Message> last_unacknowledged_message;
 
     ConnectFunction connect_function;
     RemoveConnectionFunction remove_connection_function;
     IsConnectedAtStepFunction is_connected_at_step_function;
-
-    optional<Message> last_unacknowledged_message;
+    CanStoreDataFunction can_store_data_function;
+    SetLastDataMessageIdFunction set_last_data_message_id_function;
 
     /* Methods */
 
@@ -96,14 +111,19 @@ class Entity {
     /* Construction */
     Entity(uuids::uuid id, string name, ConnectFunction connect_function,
            RemoveConnectionFunction remove_connection_function,
-           IsConnectedAtStepFunction is_connected_at_step_function)
+           IsConnectedAtStepFunction is_connected_at_step_function,
+           CanStoreDataFunction can_store_data_function,
+           SetLastDataMessageIdFunction set_last_data_message_id_function)
         : id(id),
           name(name),
           storage(""),
+          last_unacknowledged_message(nullopt),
           connect_function(connect_function),
           remove_connection_function(remove_connection_function),
           is_connected_at_step_function(is_connected_at_step_function),
-          last_unacknowledged_message(nullopt) {}
+          can_store_data_function(can_store_data_function),
+          set_last_data_message_id_function(set_last_data_message_id_function) {
+    }
 
     ~Entity() {}
 
@@ -116,9 +136,6 @@ class Entity {
 
     /* Methods */
     bool canSendMessage(uuids::uuid message_id) const;
-    // MessageConsequence getSendingMessageConsequence(
-    //     const Message &message) const;
-    // bool shouldBeConfirmed(Message &message) const;
 
     bool sendMessage(Message message, bool should_be_confirmed);
     Response receiveMessage(
@@ -135,6 +152,10 @@ class Entity {
                               remove_connection_function_parameters);
     bool isConnectedAtStep(InternalIsConnectedAtStepFunctionParameters
                                is_connected_at_step_function_parameters) const;
+    bool canStoreData(InternalCanStoreDataFunctionParameters
+                          can_store_data_function_parameters) const;
+    void setLastDataMessageId(InternalSetLastDataMessageIdFunctionParameters
+                                  set_last_data_message_id_parameters);
 };
 
 using EntitiesList = list<shared_ptr<Entity>>;

@@ -118,9 +118,10 @@ void GenericProtocol::run() {
     GenericProtocol::sendMessage(entity_a, entity_b, "SYN", Message::Code::SYN,
                                  *network, output_stream);
 
-    deque<string> contents = {"Hello, Baobá!", "Fragment 1", "Fragment 2",
-                              "Fragment 3",    "Fragment 4", "Fragment 5",
-                              "Fragment 6"};
+    deque<string> contents = {
+        // "Hello, Baobá!", "Fragment 1", "Fragment 2",
+        //                       "Fragment 3",    "Fragment 4", "Fragment 5",
+        "Fragment 6"};
 
     for (string content : contents) {
         GenericProtocol::sendMessage(entity_a, entity_b, content,
@@ -181,9 +182,37 @@ shared_ptr<Entity> GenericProtocol::createEntity(
             return apply(is_connected_at_step_lambda, params);
         });
 
+    auto can_store_data_lambda = [connections_ptr](uuids::uuid source_entity_id,
+                                                   uuids::uuid target_entity_id,
+                                                   uuids::uuid message_id) {
+        return Connection::canStoreData(
+            connections_ptr, {source_entity_id, target_entity_id, message_id});
+    };
+    CanStoreDataFunction can_store_data_function = make_shared<function<bool(
+        CanStoreDataFunctionParameters can_store_data_function_parameters)>>(
+        [can_store_data_lambda](CanStoreDataFunctionParameters params) {
+            return apply(can_store_data_lambda, params);
+        });
+
+    auto set_last_data_message_id_lambda = [connections_ptr](
+                                               uuids::uuid source_entity_id,
+                                               uuids::uuid target_entity_id,
+                                               uuids::uuid message_id) {
+        Connection::setLastDataMessageId(
+            connections_ptr, {source_entity_id, target_entity_id, message_id});
+    };
+    auto set_last_data_message_id_function =
+        make_shared<function<void(SetLastDataMessageIdFunctionParameters
+                                      set_last_data_message_id_parameters)>>(
+            [set_last_data_message_id_lambda](
+                SetLastDataMessageIdFunctionParameters params) {
+                apply(set_last_data_message_id_lambda, params);
+            });
+
     shared_ptr<Entity> entity = make_shared<Entity>(
         GenericProtocol::uuid_generator->operator()(), name, connect_function,
-        remove_connection_function, is_connected_at_step_function);
+        remove_connection_function, is_connected_at_step_function,
+        can_store_data_function, set_last_data_message_id_function);
 
     entities.push_back(entity);
 

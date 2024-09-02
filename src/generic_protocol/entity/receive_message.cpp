@@ -179,14 +179,25 @@ Entity::Response Entity::receiveDataMessage(
                           Message::Code::NACK);
     Response error_response(error_message, false, message.getId());
 
-    if (this->isConnectedAtStep(
-            {message.getSourceEntityId(), ConnectionStep::ACK_ACK_SYN})) {
-        this->storage += message.getContent() + "\n";
+    auto last_data_message_id_container = message.getLastDataMessageId();
 
-        return Response(
-            {Message(uuid_generator, this->id, message.getSourceEntityId(),
-                     "ACK\n" + to_string(message.getId()), Message::Code::ACK),
-             false, message.getId()});
+    if (last_data_message_id_container.has_value()) {
+        uuids::uuid last_data_message_id =
+            last_data_message_id_container.value();
+
+        if (this->canStoreData(
+                {message.getSourceEntityId(), last_data_message_id})) {
+            this->storage += message.getContent() + "\n";
+
+            this->setLastDataMessageId(
+                {message.getSourceEntityId(), message.getId()});
+
+            Message ack_message(
+                uuid_generator, this->id, message.getSourceEntityId(),
+                "ACK\n" + to_string(message.getId()), Message::Code::ACK);
+
+            return Response(ack_message, false, message.getId());
+        }
     }
 
     return error_response;
