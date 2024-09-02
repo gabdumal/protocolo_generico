@@ -8,6 +8,7 @@
 #include "./entity/entity.hpp"
 #include "./message/message.hpp"
 #include "./network/network.hpp"
+#include "connection.hpp"
 
 class GenericProtocol {
    private:
@@ -32,7 +33,10 @@ class GenericProtocol {
 
     /* Static methods */
     static shared_ptr<Entity> createEntity(
-        string name, function<void(string)> print_message);
+        string name, EntitiesList &entities,
+        ConnectionsMapPointer connections_ptr,
+        function<void(string)> print_message);
+
     static void sendMessage(shared_ptr<Entity> source,
                             shared_ptr<Entity> target, string message_content,
                             Message::Code message_code, Network &network,

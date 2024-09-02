@@ -47,4 +47,12 @@ class Message {
     void print(function<void(string)> print_message) const;
 };
 
+struct Package {
+    Message message;
+    bool should_be_confirmed;
+
+    Package(Message message, bool should_be_confirmed)
+        : message(message), should_be_confirmed(should_be_confirmed) {}
+};
+
 #endif  // _MESSAGE_HPP

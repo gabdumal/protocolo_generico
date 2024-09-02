@@ -3,23 +3,52 @@
 
 #include <uuid.h>
 
+#include <functional>
+#include <list>
 #include <memory>
 #include <message.hpp>
-#include <optional>
 #include <pretty_console.hpp>
-#include <string>
-#include <unordered_map>
 
 using namespace std;
 
+enum class ConnectionStep { NONE, SYN, ACK_SYN, ACK_ACK_SYN };
+
+using InternalConnectFunctionParameters =
+    tuple<uuids::uuid, uuids::uuid, ConnectionStep>;
+using ConnectFunctionParameters =
+    tuple<uuids::uuid, uuids::uuid, uuids::uuid, ConnectionStep>;
+using ConnectFunction = shared_ptr<
+    function<void(ConnectFunctionParameters connect_function_parameters)>>;
+
+using InternalRemoveConnectionFunctionParameters = tuple<uuids::uuid>;
+using RemoveConnectionFunctionParameters = tuple<uuids::uuid, uuids::uuid>;
+using RemoveConnectionFunction = shared_ptr<function<void(
+    RemoveConnectionFunctionParameters remove_connection_function_parameters)>>;
+
+using InternalIsConnectedAtStepFunctionParameters =
+    tuple<uuids::uuid, ConnectionStep>;
+using IsConnectedAtStepFunctionParameters =
+    tuple<uuids::uuid, uuids::uuid, ConnectionStep>;
+using IsConnectedAtStepFunction =
+    shared_ptr<function<bool(IsConnectedAtStepFunctionParameters
+                                 is_connected_at_step_function_parameters)>>;
+
 class Entity {
-   private:
-    struct Connection {
-        optional<uuids::uuid> syn_message_id;
-        optional<uuids::uuid> ack_syn_message_id;
-        optional<uuids::uuid> ack_ack_syn_message_id;
+   public:
+    struct Response {
+        optional<Message> message;
+        bool should_be_confirmed;
+        optional<uuids::uuid> id_from_message_possibly_acknowledged;
+
+        Response(optional<Message> message, bool should_be_confirmed,
+                 optional<uuids::uuid> id_from_message_possibly_acknowledged)
+            : message(message),
+              should_be_confirmed(should_be_confirmed),
+              id_from_message_possibly_acknowledged(
+                  id_from_message_possibly_acknowledged) {}
     };
 
+   private:
     struct MessageConsequence {
         bool should_send_message;
         bool should_lock_entity;
@@ -29,52 +58,54 @@ class Entity {
     string name;
     string storage;
 
-    unordered_map<uuids::uuid, shared_ptr<Connection>> connections;
+    ConnectFunction connect_function;
+    RemoveConnectionFunction remove_connection_function;
+    IsConnectedAtStepFunction is_connected_at_step_function;
+
     optional<Message> last_unacknowledged_message;
 
     /* Methods */
+
     void printInformation(
         string information, ostream &output_stream,
         PrettyConsole::Color color = PrettyConsole::Color::DEFAULT) const;
-    optional<Connection> getConnection(uuids::uuid entity_id) const;
-    bool isConnectedTo(uuids::uuid entity_id) const;
-    bool canReceiveDataFrom(uuids::uuid entity_id) const;
 
-    optional<Message> receiveSynMessage(
+    Response receiveSynMessage(
         const Message &message,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    optional<Message> receiveFinMessage(
+    Response receiveFinMessage(
         const Message &message,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    optional<Message> receiveAckMessage(
+    Response receiveAckMessage(
         const Message &message,
-        optional<uuids::uuid> &id_from_message_being_acknowledged,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    optional<Message> receiveAckSynMessage(
+    Response receiveAckSynMessage(
         const Message &message, uuids::uuid sent_message_id,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    optional<Message> receiveAckAckSynMessage(
+    Response receiveAckAckSynMessage(
         const Message &message, uuids::uuid sent_message_id,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    optional<Message> receiveNackMessage(
+    Response receiveNackMessage(
         const Message &message,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    optional<Message> receiveDataMessage(
+    Response receiveDataMessage(
         const Message &message,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-
-    bool processMessageBeingSent(Message &message);
 
    public:
-    struct Response {
-        optional<Message> message;
-        optional<uuids::uuid> id_from_message_possibly_acknowledged;
-    };
-
     /* Construction */
-    Entity(string name,
-           shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    ~Entity();
+    Entity(uuids::uuid id, string name, ConnectFunction connect_function,
+           RemoveConnectionFunction remove_connection_function,
+           IsConnectedAtStepFunction is_connected_at_step_function)
+        : id(id),
+          name(name),
+          storage(""),
+          connect_function(connect_function),
+          remove_connection_function(remove_connection_function),
+          is_connected_at_step_function(is_connected_at_step_function),
+          last_unacknowledged_message(nullopt) {}
+
+    ~Entity() {}
 
     /* Getters */
     uuids::uuid getId() const;
@@ -85,15 +116,27 @@ class Entity {
 
     /* Methods */
     bool canSendMessage(uuids::uuid message_id) const;
-    bool sendMessage(Message &message);
-    void printMessageInformation(const Message &message, ostream &output_stream,
-                                 bool is_sending) const;
+    // MessageConsequence getSendingMessageConsequence(
+    //     const Message &message) const;
+    // bool shouldBeConfirmed(Message &message) const;
+
+    bool sendMessage(Message message, bool should_be_confirmed);
     Response receiveMessage(
         const Message &message,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
+
+    void printMessageInformation(const Message &message, ostream &output_stream,
+                                 bool is_sending) const;
     void printStorage(function<void(string)> print_message) const;
-    MessageConsequence getSendingMessageConsequence(
-        const Message &message) const;
+
+    /* Connection */
+    void connect(InternalConnectFunctionParameters connect_function_parameters);
+    void removeConnection(InternalRemoveConnectionFunctionParameters
+                              remove_connection_function_parameters);
+    bool isConnectedAtStep(InternalIsConnectedAtStepFunctionParameters
+                               is_connected_at_step_function_parameters) const;
 };
+
+using EntitiesList = list<shared_ptr<Entity>>;
 
 #endif  // _ENTITY_HPP

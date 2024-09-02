@@ -1,10 +1,9 @@
 # Sources
 target_sources(generic_protocol
     PUBLIC
-        entity.hpp
+        connection.hpp
     PRIVATE
-        entity.cpp
-        receive_message.cpp
+        connection.cpp
 )
 
 # Include self

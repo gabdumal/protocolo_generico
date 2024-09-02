@@ -22,9 +22,9 @@ Network::Network(string name,
     this->message_sending_thread =
         thread([this]() { this->sendingThreadJob(); });
 
-    this->processing_messages_count = 0;
+    this->processing_packages_count = 0;
     this->can_stop_processing_thread = false;
-    this->processing_messages_thread =
+    this->processing_packages_thread =
         thread([this]() { this->processingThreadJob(); });
 }
 
@@ -46,23 +46,37 @@ string Network::getName() const { return name; }
 void Network::connectEntity(shared_ptr<Entity> entity) {
     lock_guard<mutex> lock(this->entities_mutex);
     this->entities[entity->getId()] = entity;
-    this->message_processed_cv.notify_all();
+    this->package_processed_cv.notify_all();
 }
 
 void Network::disconnectEntity(uuids ::uuid entity_id) {
     lock_guard<mutex> lock(this->entities_mutex);
     this->entities.erase(entity_id);
-    this->message_processed_cv.notify_all();
+    this->package_processed_cv.notify_all();
 }
 
 /* Main */
 
 bool Network::receiveMessage(Message message) {
-    this->registerMessageSending(message);
-    return this->preprocessMessage(message);
+    Package package(message, true);
+    return this->receivePackage(package);
 }
 
-bool Network::preprocessMessage(Message message, int attempt) {
+bool Network::receivePackage(Package package) {
+    if (GenericProtocolConstants::debug_information) {
+        this->printInformation(
+            "Package [" + to_string(package.message.getId()) +
+                "] has been received in the network " + this->getName() + "!",
+            cout, PrettyConsole::Color::GREEN);
+    }
+
+    this->registerPackage(package);
+    return this->preprocessPackage(package);
+}
+
+bool Network::preprocessPackage(Package package, int attempt) {
+    auto message = package.message;
+
     if (GenericProtocolConstants::debug_information) {
         this->printInformation(
             "Attempt [" + to_string(attempt) + "] to send message [" +
@@ -72,20 +86,23 @@ bool Network::preprocessMessage(Message message, int attempt) {
     }
 
     if (this->hasPackageBeenLost(message.getId())) return false;
-    return this->insertMessageIntoProcessingQueue(message);
+    return this->insertPackageIntoProcessingQueue(package);
 }
 
-void Network::processMessage(Message message) {
+void Network::processMessage(Package package) {
     this->simulateNetworkLatency();
-    this->simulatePacketCorruption(message);
+    this->simulatePacketCorruption(package.message);
 
-    this->sendMessage(message);
+    this->sendPackage(package);
     this->finishMessageProcessing();
 }
 
 /* Operational */
 
-void Network::sendMessage(Message message) {
+void Network::sendPackage(Package &package) {
+    auto message = package.message;
+    bool should_be_confirmed = package.should_be_confirmed;
+
     lock_guard<mutex> lock(this->entities_mutex);
     auto target_entity_pair = this->entities.find(message.getTargetEntityId());
 
@@ -100,7 +117,8 @@ void Network::sendMessage(Message message) {
                 shared_ptr<Entity> source_entity = source_entity_pair->second;
 
                 if (source_entity) {
-                    bool can_send_message = source_entity->sendMessage(message);
+                    bool can_send_message = source_entity->sendMessage(
+                        message, should_be_confirmed);
 
                     if (!can_send_message) {
                         if (GenericProtocolConstants::debug_information) {
@@ -138,7 +156,9 @@ void Network::sendMessage(Message message) {
                                         this->getName() + "!",
                                     cout, PrettyConsole::Color::GREEN);
                             }
-                            this->receiveMessage(returned_message.value());
+                            this->receivePackage(
+                                Package(returned_message.value(),
+                                        response.should_be_confirmed));
                         }
                     }
                 } else {
@@ -174,21 +194,21 @@ void Network::sendMessage(Message message) {
 }
 
 void Network::finishMessageProcessing() {
-    lock_guard<mutex> lock(this->messages_to_process_mutex);
-    this->processing_messages_count--;
-    if (processing_messages_count == 0) {
-        this->message_processed_cv.notify_all();  // Notify the destructor
+    lock_guard<mutex> lock(this->packages_to_process_mutex);
+    this->processing_packages_count--;
+    if (processing_packages_count == 0) {
+        this->package_processed_cv.notify_all();  // Notify the destructor
     }
 }
 
 /* Auxiliary */
 
-bool Network::insertMessageIntoProcessingQueue(Message message) {
+bool Network::insertPackageIntoProcessingQueue(Package package) {
     try {
-        lock_guard<mutex> lock(this->messages_to_process_mutex);
-        this->messages_to_process.push(message);
-        this->processing_messages_count++;
-        this->message_processed_cv.notify_one();  // Notify the network thread
+        lock_guard<mutex> lock(this->packages_to_process_mutex);
+        this->packages_to_process.push(package);
+        this->processing_packages_count++;
+        this->package_processed_cv.notify_one();  // Notify the network thread
         return true;
     } catch (const exception &e) {
         this->printInformation("Error while receiving message in the network " +
@@ -205,8 +225,8 @@ void Network::joinSendingThread() {
 }
 
 void Network::joinProcessingThread() {
-    if (this->processing_messages_thread.joinable()) {
-        this->processing_messages_thread.join();
+    if (this->processing_packages_thread.joinable()) {
+        this->processing_packages_thread.join();
     }
 }
 
@@ -218,14 +238,17 @@ void Network::joinThreads() {
     }
     this->joinSendingThread();
     {
-        lock_guard<mutex> lock(this->messages_to_process_mutex);
+        lock_guard<mutex> lock(this->packages_to_process_mutex);
         this->can_stop_processing_thread = true;
-        this->message_processed_cv.notify_all();
+        this->package_processed_cv.notify_all();
     }
     this->joinProcessingThread();
 }
 
-void Network::registerMessageSending(Message message) {
+void Network::registerPackage(Package package) {
+    auto message = package.message;
+    bool should_be_confirmed = package.should_be_confirmed;
+
     auto source_entity_pair = this->entities.find(message.getSourceEntityId());
     if (source_entity_pair == this->entities.end()) {
         this->printInformation(
@@ -233,23 +256,13 @@ void Network::registerMessageSending(Message message) {
                 "] is not connected to the network " + this->getName() + "!",
             cerr, PrettyConsole::Color::RED);
     }
-    auto source_entity = source_entity_pair->second;
 
+    auto source_entity = source_entity_pair->second;
     source_entity->printMessageInformation(message, cout, true);
 
-    auto [should_send_message, should_lock_entity] =
-        source_entity->getSendingMessageConsequence(message);
+    if (!should_be_confirmed) return;
 
-    if (!should_lock_entity) return;
-
-    if (GenericProtocolConstants::debug_information) {
-        this->printInformation("Message [" + to_string(message.getId()) +
-                                   "] has been registered in the network " +
-                                   this->getName() + "!",
-                               cout, PrettyConsole::Color::GREEN);
-    }
-
-    lock_guard<mutex> lock(this->messages_to_process_mutex);
+    lock_guard<mutex> lock(this->unconfirmed_messages_mutex);
     this->unconfirmed_messages.insert(
         {message.getId(), MessageSending(message)});
 }
@@ -343,8 +356,8 @@ void Network::sendingThreadJob() {
                         chrono::system_clock::now();
                     message_sending.remaining_attempts--;
                     lock.unlock();
-                    this->preprocessMessage(
-                        message_sending.message,
+                    this->preprocessPackage(
+                        Package(message_sending.message, true),
                         GenericProtocolConstants::max_attempts_to_send_message -
                             message_sending.remaining_attempts);
                     lock.lock();
@@ -374,22 +387,22 @@ void Network::sendingThreadJob() {
 
 void Network::processingThreadJob() {
     while (true) {
-        unique_lock<mutex> lock(this->messages_to_process_mutex);
+        unique_lock<mutex> lock(this->packages_to_process_mutex);
 
         // Finish job if there are no messages to process
-        if (this->can_stop_processing_thread && messages_to_process.empty()) {
+        if (this->can_stop_processing_thread && packages_to_process.empty()) {
             break;
         }
 
-        if (!this->messages_to_process.empty()) {
-            Message message = this->messages_to_process.front();
-            this->messages_to_process.pop();
+        if (!this->packages_to_process.empty()) {
+            auto package = this->packages_to_process.front();
+            this->packages_to_process.pop();
             lock.unlock();
-            this->processMessage(message);
+            this->processMessage(package);
             lock.lock();
         } else {
             // Wait for a message to process
-            this->message_processed_cv.wait(lock);
+            this->package_processed_cv.wait(lock);
         }
     }
 }
