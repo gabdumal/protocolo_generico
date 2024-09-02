@@ -24,22 +24,33 @@ using ConnectionsMapPointer = shared_ptr<ConnectionsMap>;
 
 class Connection {
    private:
+    uuids::uuid first_entity_id;
+    uuids::uuid last_entity_id;
+
     optional<uuids::uuid> syn_message_id;
     optional<uuids::uuid> ack_syn_message_id;
     optional<uuids::uuid> ack_ack_syn_message_id;
-    optional<uuids::uuid> last_data_message_id;
+
+    unsigned int buffer_size;
+    shared_ptr<list<uuids::uuid>> last_unconfirmed_sent_packages;
 
    public:
-    Connection()
-        : syn_message_id(nullopt),
+    Connection(uuids::uuid first_entity_id, uuids::uuid last_entity_id,
+               unsigned int buffer_size = 10)
+        : first_entity_id(first_entity_id),
+          last_entity_id(last_entity_id),
+          syn_message_id(nullopt),
           ack_syn_message_id(nullopt),
           ack_ack_syn_message_id(nullopt),
-          last_data_message_id(nullopt) {}
+          buffer_size(buffer_size),
+          last_unacknowledged_packages_ids_ptr(
+              make_shared<queue<uuids::uuid>>()) {}
     ~Connection() {}
 
     void connect(uuids::uuid message_id, ConnectionStep step);
     void removeConnection();
     bool isConnectedAtStep(ConnectionStep step);
+    bool canSendData(optional<uuids::uuid> message_id_container);
     bool canStoreData(optional<uuids::uuid> message_id_container);
     void setLastDataMessageId(uuids::uuid message_id);
 
@@ -52,12 +63,12 @@ class Connection {
     static bool isConnectedAtStep(ConnectionsMapPointer connections_ptr,
                                   IsConnectedAtStepFunctionParameters
                                       is_connected_at_step_function_parameters);
+    static bool canSendPackage(
+        ConnectionsMapPointer connections_ptr,
+        CanSendPackageFunctionParameters can_send_package_function_parameters);
     static bool canStoreData(
         ConnectionsMapPointer connections_ptr,
         CanStoreDataFunctionParameters can_store_data_function_parameters);
-    static void setLastDataMessageId(ConnectionsMapPointer connections_ptr,
-                                     SetLastDataMessageIdFunctionParameters
-                                         set_last_data_message_id_parameters);
 };
 
 #endif  // CONNECTION_HPP_

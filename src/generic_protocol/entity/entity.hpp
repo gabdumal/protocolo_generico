@@ -9,6 +9,8 @@
 #include <message.hpp>
 #include <pretty_console.hpp>
 
+#include "package/package.hpp"
+
 using namespace std;
 
 enum class ConnectionStep { NONE, SYN, ACK_SYN, ACK_ACK_SYN };
@@ -33,20 +35,16 @@ using IsConnectedAtStepFunction =
     shared_ptr<function<bool(IsConnectedAtStepFunctionParameters
                                  is_connected_at_step_function_parameters)>>;
 
-using InternalCanStoreDataFunctionParameters =
-    tuple<uuids::uuid, optional<uuids::uuid>>;
+using InternalCanSendPackageFunctionParameters = tuple<uuids::uuid>;
+using CanSendPackageFunctionParameters = tuple<uuids::uuid, uuids::uuid>;
+using CanSendPackageFunction = shared_ptr<function<bool(
+    CanSendPackageFunctionParameters can_send_package_function_parameters)>>;
+
+using InternalCanStoreDataFunctionParameters = tuple<uuids::uuid, uuids::uuid>;
 using CanStoreDataFunctionParameters =
-    tuple<uuids::uuid, uuids::uuid, optional<uuids::uuid>>;
+    tuple<uuids::uuid, uuids::uuid, uuids::uuid>;
 using CanStoreDataFunction = shared_ptr<function<bool(
     CanStoreDataFunctionParameters can_store_data_function_parameters)>>;
-
-using InternalSetLastDataMessageIdFunctionParameters =
-    tuple<uuids::uuid, uuids::uuid>;
-using SetLastDataMessageIdFunctionParameters =
-    tuple<uuids::uuid, uuids::uuid, uuids::uuid>;
-using SetLastDataMessageIdFunction =
-    shared_ptr<function<void(SetLastDataMessageIdFunctionParameters
-                                 set_last_data_message_id_parameters)>>;
 
 class Entity {
    public:
@@ -64,21 +62,15 @@ class Entity {
     };
 
    private:
-    struct MessageConsequence {
-        bool should_send_message;
-        bool should_lock_entity;
-    };
-
     uuids::uuid id;
     string name;
     string storage;
-    optional<Message> last_unacknowledged_message;
 
     ConnectFunction connect_function;
     RemoveConnectionFunction remove_connection_function;
     IsConnectedAtStepFunction is_connected_at_step_function;
+    CanSendPackageFunction can_send_package_function;
     CanStoreDataFunction can_store_data_function;
-    SetLastDataMessageIdFunction set_last_data_message_id_function;
 
     /* Methods */
 
@@ -113,18 +105,16 @@ class Entity {
     Entity(uuids::uuid id, string name, ConnectFunction connect_function,
            RemoveConnectionFunction remove_connection_function,
            IsConnectedAtStepFunction is_connected_at_step_function,
-           CanStoreDataFunction can_store_data_function,
-           SetLastDataMessageIdFunction set_last_data_message_id_function)
+           CanSendPackageFunction can_send_package_function,
+           CanStoreDataFunction can_store_data_function)
         : id(id),
           name(name),
           storage(""),
-          last_unacknowledged_message(nullopt),
           connect_function(connect_function),
           remove_connection_function(remove_connection_function),
           is_connected_at_step_function(is_connected_at_step_function),
-          can_store_data_function(can_store_data_function),
-          set_last_data_message_id_function(set_last_data_message_id_function) {
-    }
+          can_send_package_function(can_send_package_function),
+          can_store_data_function(can_store_data_function) {}
 
     ~Entity() {}
 
@@ -139,11 +129,11 @@ class Entity {
     bool canSendMessage(uuids::uuid message_id) const;
 
     bool sendMessage(Message message, bool should_be_confirmed);
-    Response receiveMessage(
-        const Message &message,
+    Response receivePackage(
+        Package package,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
 
-    void printMessageInformation(const Message &message, ostream &output_stream,
+    void printPackageInformation(Package package, ostream &output_stream,
                                  bool is_sending) const;
     void printStorage(function<void(string)> print_message) const;
 
@@ -153,10 +143,10 @@ class Entity {
                               remove_connection_function_parameters);
     bool isConnectedAtStep(InternalIsConnectedAtStepFunctionParameters
                                is_connected_at_step_function_parameters) const;
+    bool canSendPackage(InternalCanSendPackageFunctionParameters
+                            can_send_package_function_parameters) const;
     bool canStoreData(InternalCanStoreDataFunctionParameters
                           can_store_data_function_parameters) const;
-    void setLastDataMessageId(InternalSetLastDataMessageIdFunctionParameters
-                                  set_last_data_message_id_parameters);
 };
 
 using EntitiesList = list<shared_ptr<Entity>>;

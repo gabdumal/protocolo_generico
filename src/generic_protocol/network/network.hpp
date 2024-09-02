@@ -12,10 +12,10 @@
 #include <queue>
 #include <string>
 #include <thread>
-#include <unordered_map>
 
 #include "../entity/entity.hpp"
 #include "generic_protocol_constants.hpp"
+#include "package.hpp"
 
 using namespace std;
 
@@ -38,7 +38,7 @@ class Network {
     shared_ptr<uuids::uuid_random_generator> uuid_generator;
     string name;
 
-    unordered_map<uuids::uuid, shared_ptr<Entity>> entities;
+    shared_ptr<map<uuids::uuid, shared_ptr<Entity>>> entities;
     mutex entities_mutex;
 
     shared_ptr<map<uuids::uuid, MessageSending>> unconfirmed_messages;

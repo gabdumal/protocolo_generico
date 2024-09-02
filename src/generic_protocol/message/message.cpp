@@ -32,7 +32,6 @@ Message::Message(shared_ptr<uuids::uuid_random_generator> uuid_generator,
     this->source_entity_id = source_entity_id;
     this->target_entity_id = target_entity_id;
     this->content = content;
-    this->corrupted = false;
     this->code = code;
 }
 
@@ -50,17 +49,9 @@ uuids::uuid Message::getTargetEntityId() const {
     return this->target_entity_id;
 }
 
-string Message::getContent() const { return this->content; }
-
-bool Message::isCorrupted() const { return this->corrupted; }
-
 Message::Code Message::getCode() const { return this->code; }
 
-/* Setters */
-
-void Message::setCorrupted(bool is_corrupted) {
-    this->corrupted = is_corrupted;
-}
+string Message::getContent() const { return this->content; }
 
 /* Methods */
 
@@ -71,8 +62,6 @@ void Message::print(std::function<void(std::string)> print_message) const {
     print_message("Target entity ID: " +
                   uuids::to_string(this->getTargetEntityId()));
     print_message("Code: " + codeToString(this->getCode()));
-    print_message("Corrupted: " +
-                  std::string(this->isCorrupted() ? "YES" : "NO"));
     print_message("=== BEGIN ===");
     std::istringstream content_stream(this->getContent());
     std::string line;
@@ -100,14 +89,6 @@ optional<Message::AckType> Message::getAckType() const {
         } else {
             return Message::AckType::ACK;
         }
-    }
-    return nullopt;
-}
-
-optional<uuids::uuid> Message::getLastDataMessageId() const {
-    if (this->code == Message::Code::DATA) {
-        string content = Util::getLineContent(1, this->content);
-        return uuids::uuid::from_string(content);
     }
     return nullopt;
 }

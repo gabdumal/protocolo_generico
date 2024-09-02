@@ -17,6 +17,7 @@ Network::Network(string name,
                  shared_ptr<uuids::uuid_random_generator> uuid_generator) {
     this->uuid_generator = uuid_generator;
     this->name = name;
+    this->entities = make_shared<map<uuids::uuid, shared_ptr<Entity>>>();
 
     this->unconfirmed_messages =
         make_shared<map<uuids::uuid, MessageSending>>();
@@ -49,13 +50,13 @@ string Network::getName() const { return name; }
 
 void Network::connectEntity(shared_ptr<Entity> entity) {
     lock_guard<mutex> lock(this->entities_mutex);
-    this->entities[entity->getId()] = entity;
+    this->entities->insert({entity->getId(), entity});
     this->package_processed_cv.notify_all();
 }
 
 void Network::disconnectEntity(uuids ::uuid entity_id) {
     lock_guard<mutex> lock(this->entities_mutex);
-    this->entities.erase(entity_id);
+    this->entities->erase(entity_id);
     this->package_processed_cv.notify_all();
 }
 
@@ -108,16 +109,16 @@ void Network::sendPackage(Package &package) {
     bool should_be_confirmed = package.should_be_confirmed;
 
     lock_guard<mutex> lock(this->entities_mutex);
-    auto target_entity_pair = this->entities.find(message.getTargetEntityId());
+    auto target_entity_pair = this->entities->find(message.getTargetEntityId());
 
-    if (target_entity_pair != entities.end()) {
+    if (target_entity_pair != entities->end()) {
         shared_ptr<Entity> target_entity = target_entity_pair->second;
 
         if (target_entity) {
             auto source_entity_pair =
-                this->entities.find(message.getSourceEntityId());
+                this->entities->find(message.getSourceEntityId());
 
-            if (source_entity_pair != entities.end()) {
+            if (source_entity_pair != entities->end()) {
                 shared_ptr<Entity> source_entity = source_entity_pair->second;
 
                 if (source_entity) {
@@ -236,13 +237,14 @@ void Network::joinProcessingThread() {
 
 void Network::joinThreads() {
     {
-        lock_guard<mutex> lock(this->unconfirmed_messages_mutex);
+        lock_guard<mutex> lock_sending(this->unconfirmed_messages_mutex);
         this->can_stop_sending_thread = true;
         this->message_sent_cv.notify_all();
     }
     this->joinSendingThread();
+
     {
-        lock_guard<mutex> lock(this->packages_to_process_mutex);
+        lock_guard<mutex> lock_processing(this->packages_to_process_mutex);
         this->can_stop_processing_thread = true;
         this->package_processed_cv.notify_all();
     }
@@ -253,8 +255,8 @@ void Network::registerPackage(Package package) {
     auto message = package.message;
     bool should_be_confirmed = package.should_be_confirmed;
 
-    auto source_entity_pair = this->entities.find(message.getSourceEntityId());
-    if (source_entity_pair == this->entities.end()) {
+    auto source_entity_pair = this->entities->find(message.getSourceEntityId());
+    if (source_entity_pair == this->entities->end()) {
         this->printInformation(
             "Source entity [" + to_string(message.getSourceEntityId()) +
                 "] is not connected to the network " + this->getName() + "!",

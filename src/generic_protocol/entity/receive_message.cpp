@@ -1,19 +1,21 @@
 #include <iostream>
 
 #include "entity.hpp"
+#include "package/package.hpp"
 
 using namespace std;
 
-Entity::Entity::Response Entity::receiveMessage(
-    const Message &message,
-    shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    this->printMessageInformation(message, cout, false);
+Entity::Entity::Response Entity::receivePackage(
+    Package package, shared_ptr<uuids::uuid_random_generator> uuid_generator) {
+    auto message = package.getMessage();
+
+    this->printPackageInformation(package, cout, false);
 
     Message error_message(uuid_generator, this->id, message.getSourceEntityId(),
                           "NACK\n" + to_string(message.getId()),
                           Message::Code::NACK);
 
-    if (message.isCorrupted()) return Response(error_message, false, nullopt);
+    if (package.isCorrupted()) return Response(error_message, false, nullopt);
 
     switch (message.getCode()) {
         case Message::Code::SYN:
@@ -95,13 +97,6 @@ Entity::Response Entity::receiveAckMessage(
     if (uuid_container.has_value()) {
         uuids::uuid sent_message_id = uuid_container.value();
 
-        // Unlock this entity to send a new message
-        if (this->last_unacknowledged_message.has_value() &&
-            this->last_unacknowledged_message.value().getId() ==
-                sent_message_id) {
-            this->last_unacknowledged_message = nullopt;
-        }
-
         if (ack_type == Message::AckType::ACK_SYN)
             return this->receiveAckSynMessage(message, sent_message_id,
                                               uuid_generator);
@@ -179,14 +174,8 @@ Entity::Response Entity::receiveDataMessage(
                           Message::Code::NACK);
     Response error_response(error_message, false, message.getId());
 
-    auto last_data_message_id_container = message.getLastDataMessageId();
-
-    if (this->canStoreData(
-            {message.getSourceEntityId(), last_data_message_id_container})) {
+    if (this->canStoreData({message.getSourceEntityId(), message.getId()})) {
         this->storage += message.getDataContent() + "\n";
-
-        this->setLastDataMessageId(
-            {message.getSourceEntityId(), message.getId()});
 
         Message ack_message(
             uuid_generator, this->id, message.getSourceEntityId(),

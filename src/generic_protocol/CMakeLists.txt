@@ -25,7 +25,9 @@ target_link_libraries(generic_protocol
 
 # Directories
 add_subdirectory(generic_protocol_constants)
-add_subdirectory(entity)
+add_subdirectory(protocol)
 add_subdirectory(message)
-add_subdirectory(network)
-add_subdirectory(connection)
+# add_subdirectory(package)
+add_subdirectory(entity)
+# add_subdirectory(network)
+# add_subdirectory(connection)

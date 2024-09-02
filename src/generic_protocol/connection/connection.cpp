@@ -45,6 +45,10 @@ void Connection::removeConnection() {
     this->last_data_message_id = nullopt;
 }
 
+bool Connection::canSendData(optional<uuids::uuid> message_id_container) {
+    return this->canStoreData(message_id_container);
+}
+
 bool Connection::canStoreData(optional<uuids::uuid> message_id_container) {
     if (this->last_data_message_id.has_value()) {
         if (message_id_container.has_value()) {
@@ -134,6 +138,13 @@ bool Connection::isConnectedAtStep(
     }
 
     return false;
+}
+
+bool Connection::canSendData(
+    ConnectionsMapPointer connections_ptr,
+    CanSendDataFunctionParameters can_send_data_function_parameters) {
+    return Connection::canStoreData(connections_ptr,
+                                    can_send_data_function_parameters);
 }
 
 bool Connection::canStoreData(
