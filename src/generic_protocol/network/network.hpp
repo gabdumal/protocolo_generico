@@ -50,13 +50,13 @@ class Network {
                                          // message has been sent
     bool can_stop_sending_thread;
 
-    queue<Message> messages_to_process;
-    mutex messages_to_process_mutex;
+    queue<Package> packages_to_process;
+    mutex packages_to_process_mutex;
 
-    thread processing_messages_thread;
-    int processing_messages_count;
+    thread processing_packages_thread;
+    int processing_packages_count;
     condition_variable
-        message_processed_cv;  // Condition variable to notify when a message
+        package_processed_cv;  // Condition variable to notify when a message
                                // has been processed
     bool can_stop_processing_thread;
 
@@ -65,24 +65,26 @@ class Network {
             shared_ptr<uuids::uuid_random_generator> uuid_generator);
 
     /* Methods */
-    void registerMessageSending(Message message);
+    bool receivePackage(Package package);
+    void registerPackage(Package package);
+
     void sendingThreadJob();
     void joinSendingThread();
     void tryToConfirmSomeMessage(
         optional<uuids::uuid> id_from_message_possibly_acknowledged);
     void removeMessageFromUnconfirmedMessages(uuids::uuid message_id);
 
-    bool preprocessMessage(Message message, int attempt = 1);
+    bool preprocessPackage(Package package, int attempt = 1);
     bool hasPackageBeenLost(uuids::uuid message_id);
-    bool insertMessageIntoProcessingQueue(Message message);
+    bool insertPackageIntoProcessingQueue(Package package);
 
     void processingThreadJob();
-    void processMessage(Message message);
+    void processMessage(Package package);
     void simulateNetworkLatency();
     void simulatePacketCorruption(Message &message);
     void joinProcessingThread();
 
-    void sendMessage(Message message);
+    void sendMessage(Package package);
     void finishMessageProcessing();
 
     void printInformation(

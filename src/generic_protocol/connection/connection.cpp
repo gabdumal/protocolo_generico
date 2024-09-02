@@ -56,6 +56,7 @@ void Connection::connect(
     pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
     if (connections.find(key) == connections.end()) {
         auto connection = connections[key];
+        connection = make_shared<Connection>();
         connection->connect(message_id, step);
     } else {
         auto connection = make_shared<Connection>();
@@ -91,7 +92,8 @@ bool Connection::isConnectedAtStep(
     pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
     if (connections.find(key) != connections.end()) {
         auto connection = connections[key];
-        return connection->isConnectedAtStep(step);
+        auto is_connected_at_step = connection->isConnectedAtStep(step);
+        return is_connected_at_step;
     }
 
     return false;

@@ -10,9 +10,10 @@ Entity::Entity::Response Entity::receiveMessage(
     this->printMessageInformation(message, cout, false);
 
     if (message.isCorrupted())
-        return Response{Message(
-            uuid_generator, this->id, message.getSourceEntityId(),
-            "NACK\n" + to_string(message.getId()), Message::Code::NACK)};
+        return Response{
+            Message(uuid_generator, this->id, message.getSourceEntityId(),
+                    "NACK\n" + to_string(message.getId()), Message::Code::NACK),
+            false};
 
     switch (message.getCode()) {
         case Message::Code::SYN:
@@ -33,8 +34,8 @@ Entity::Entity::Response Entity::receiveMessage(
 Entity::Response Entity::receiveSynMessage(
     const Message &message,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    if (this->isConnectedAtStep(
-            {message.getSourceEntityId(), ConnectionStep::NONE})) {
+    if (!this->isConnectedAtStep(
+            {message.getSourceEntityId(), ConnectionStep::SYN})) {
         Message ack_syn_message(
             uuid_generator, this->id, message.getSourceEntityId(),
             "ACK-SYN\n" + to_string(message.getId()), Message::Code::ACK);
@@ -43,15 +44,17 @@ Entity::Response Entity::receiveSynMessage(
         this->connect({message.getSourceEntityId(), message.getId(),
                        ConnectionStep::SYN});
 
-        return Entity::Response(ack_syn_message);
+        return Entity::Response(ack_syn_message, true);
     } else {
         if (this->isConnectedAtStep(
                 {message.getSourceEntityId(), ConnectionStep::SYN}))
             return Entity::Response();
 
-        return Entity::Response{Message(
-            uuid_generator, this->id, message.getSourceEntityId(),
-            "NACK-SYN\n" + to_string(message.getId()), Message::Code::NACK)};
+        return Entity::Response{
+            Message(uuid_generator, this->id, message.getSourceEntityId(),
+                    "NACK-SYN\n" + to_string(message.getId()),
+                    Message::Code::NACK),
+            false};
     }
 }
 
@@ -97,13 +100,15 @@ Entity::Response Entity::receiveAckMessage(
             return Response{
                 Message(uuid_generator, this->id, message.getSourceEntityId(),
                         "NACK-ACK-SYN\n" + to_string(message.getId()),
-                        Message::Code::NACK)};
+                        Message::Code::NACK),
+                false};
 
         else if (ack_type == Message::AckType::ACK_ACK_SYN)
             return Response{
                 Message(uuid_generator, this->id, message.getSourceEntityId(),
                         "NACK-ACK-ACK-SYN\n" + to_string(message.getId()),
-                        Message::Code::NACK)};
+                        Message::Code::NACK),
+                false};
     }
 
     return Response();
@@ -121,7 +126,7 @@ Entity::Response Entity::receiveAckSynMessage(
     this->connect({message.getSourceEntityId(), message.getId(),
                    ConnectionStep::ACK_SYN});
 
-    return Response(ack_ack_syn_message);
+    return Response(ack_ack_syn_message, true);
 }
 
 Entity::Response Entity::receiveAckAckSynMessage(
@@ -140,13 +145,14 @@ Entity::Response Entity::receiveAckAckSynMessage(
             "ACK-ACK-ACK-SYN\n" + to_string(message.getId()),
             Message::Code::ACK);
 
-        return Response(ack_ack_ack_syn_message);
+        return Response(ack_ack_ack_syn_message, false);
     }
 
-    return Response{Message(uuid_generator, this->id,
-                            message.getSourceEntityId(),
-                            "NACK-ACK-ACK-SYN\n" + to_string(message.getId()),
-                            Message::Code::NACK)};
+    return Response{
+        Message(uuid_generator, this->id, message.getSourceEntityId(),
+                "NACK-ACK-ACK-SYN\n" + to_string(message.getId()),
+                Message::Code::NACK),
+        false};
 }
 
 Entity::Response Entity::receiveAckAckAckSynMessage(
@@ -170,10 +176,12 @@ Entity::Response Entity::receiveDataMessage(
 
         return Response{
             Message(uuid_generator, this->id, message.getSourceEntityId(),
-                    "ACK\n" + to_string(message.getId()), Message::Code::ACK)};
+                    "ACK\n" + to_string(message.getId()), Message::Code::ACK),
+            true};
     }
 
     return Response{
         Message(uuid_generator, this->id, message.getSourceEntityId(),
-                "NACK\n" + to_string(message.getId()), Message::Code::NACK)};
+                "NACK\n" + to_string(message.getId()), Message::Code::NACK),
+        false};
 }

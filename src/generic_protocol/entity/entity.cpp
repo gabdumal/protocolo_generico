@@ -42,7 +42,9 @@ bool Entity::isConnectedAtStep(
     IsConnectedAtStepFunctionParameters parameters = {
         this->id, get<0>(is_connected_at_step_function_parameters),
         get<1>(is_connected_at_step_function_parameters)};
-    return this->is_connected_at_step_function->operator()(parameters);
+    auto is_connected_at_step =
+        this->is_connected_at_step_function->operator()(parameters);
+    return is_connected_at_step;
 }
 
 /* Methods */
@@ -60,33 +62,38 @@ bool Entity::canSendMessage(uuids::uuid message_id) const {
     return true;
 }
 
-Entity::MessageConsequence Entity::getSendingMessageConsequence(
-    const Message &message) const {
-    if (message.getCode() == Message::Code::NACK) {
-        return {false, false};
-    }
-    if (this->isConnectedAtStep(
-            {message.getSourceEntityId(), ConnectionStep::NONE})) {
-        return MessageConsequence{true, true};
-    } else {
-        if (message.getCode() == Message::Code::SYN)
-            return MessageConsequence{true, true};
-    }
+// bool Entity::shouldBeConfirmed(Message &message) const {
+//     auto code = message.getCode();
+//     if (code == Message::Code::NACK) return false;
+//     auto is_connected_at_step = this->isConnectedAtStep(
+//         {message.getSourceEntityId(), ConnectionStep::SYN});
+//     if (is_connected_at_step)
+//         return true;
+//     else if (code == Message::Code::SYN)
+//         return true;
+//     return false;
+// }
 
-    return {false, false};
-}
+// Entity::MessageConsequence Entity::getSendingMessageConsequence(
+//     const Message &message) const {
+//     if (message.getCode() == Message::Code::NACK) {
+//         return {false, false};
+//     }
+//     if (this->isConnectedAtStep(
+//             {message.getSourceEntityId(), ConnectionStep::NONE})) {
+//         return MessageConsequence{true, true};
+//     } else {
+//         if (message.getCode() == Message::Code::SYN)
+//             return MessageConsequence{true, true};
+//     }
 
-bool Entity::sendMessage(Message &message) {
+//     return {false, false};
+// }
+
+bool Entity::sendMessage(Message message, bool should_be_confirmed) {
     if (!canSendMessage(message.getId())) return false;
-
-    auto [should_send_message, should_lock_entity] =
-        this->getSendingMessageConsequence(message);
-
-    if (should_lock_entity) {
-        this->last_unacknowledged_message = message;
-    }
-
-    return should_send_message;
+    if (should_be_confirmed) this->last_unacknowledged_message = message;
+    return true;
 }
 
 void Entity::printInformation(string information, ostream &output_stream,

@@ -37,21 +37,26 @@ class Entity {
    public:
     struct Response {
         optional<Message> message;
+        bool should_be_confirmed;
         optional<uuids::uuid> id_from_message_possibly_acknowledged;
-
-        Response(optional<Message> message,
-                 optional<uuids::uuid> id_from_message_possibly_acknowledged)
-            : message(message),
-              id_from_message_possibly_acknowledged(
-                  id_from_message_possibly_acknowledged) {}
-
-        Response(optional<Message> message)
-            : message(message),
-              id_from_message_possibly_acknowledged(nullopt) {}
 
         Response()
             : message(nullopt),
+              should_be_confirmed(false),
               id_from_message_possibly_acknowledged(nullopt) {}
+
+        Response(Message message, bool should_be_confirmed)
+            : message(message),
+              should_be_confirmed(should_be_confirmed),
+              id_from_message_possibly_acknowledged(nullopt) {}
+
+        Response(optional<Message> message,
+                 optional<uuids::uuid> id_from_message_possibly_acknowledged,
+                 bool should_be_confirmed)
+            : message(message),
+              should_be_confirmed(should_be_confirmed),
+              id_from_message_possibly_acknowledged(
+                  id_from_message_possibly_acknowledged) {}
     };
 
    private:
@@ -124,11 +129,12 @@ class Entity {
     void setName(string name);
 
     /* Methods */
-    MessageConsequence getSendingMessageConsequence(
-        const Message &message) const;
     bool canSendMessage(uuids::uuid message_id) const;
+    // MessageConsequence getSendingMessageConsequence(
+    //     const Message &message) const;
+    // bool shouldBeConfirmed(Message &message) const;
 
-    bool sendMessage(Message &message);
+    bool sendMessage(Message message, bool should_be_confirmed);
     Response receiveMessage(
         const Message &message,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
