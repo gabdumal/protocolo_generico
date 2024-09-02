@@ -33,7 +33,8 @@ class GenericProtocol {
 
     /* Static methods */
     static shared_ptr<Entity> createEntity(
-        string name, EntitiesList &entities, ConnectionsMap &connections,
+        string name, EntitiesList &entities,
+        ConnectionsMapPointer connections_ptr,
         function<void(string)> print_message);
 
     static void sendMessage(shared_ptr<Entity> source,

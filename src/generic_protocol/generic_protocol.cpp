@@ -34,7 +34,7 @@ unique_ptr<Network> createNetwork(
 }
 
 pair<shared_ptr<Entity>, shared_ptr<Entity>> createEntities(
-    EntitiesList &entities, ConnectionsMap connections,
+    EntitiesList &entities, ConnectionsMapPointer connections_ptr,
     ostringstream &output_stream) {
     output_stream << "Creating entities" << endl;
     auto print_message = [&output_stream](string message) {
@@ -42,10 +42,10 @@ pair<shared_ptr<Entity>, shared_ptr<Entity>> createEntities(
     };
 
     shared_ptr<Entity> entity_a = GenericProtocol::createEntity(
-        "Aroeira", entities, connections, print_message);
+        "Aroeira", entities, connections_ptr, print_message);
     output_stream << endl;
     shared_ptr<Entity> entity_b = GenericProtocol::createEntity(
-        "Baobá", entities, connections, print_message);
+        "Baobá", entities, connections_ptr, print_message);
 
     output_stream << endl;
     cout << output_stream.str();
@@ -107,11 +107,11 @@ void GenericProtocol::run() {
 
     unique_ptr<Network> network = createNetwork(output_stream, uuid_generator);
 
-    ConnectionsMap connections;
+    ConnectionsMapPointer connections_ptr = make_shared<ConnectionsMap>();
 
     EntitiesList entities;
     auto [entity_a, entity_b] =
-        createEntities(entities, connections, output_stream);
+        createEntities(entities, connections_ptr, output_stream);
     connectEntitiesToNetwork(*network, entity_a, entity_b, output_stream);
 
     // Establish connection between entities
@@ -141,14 +141,15 @@ void GenericProtocol::run() {
 
 // TODO: Refactor this method to use the Entity constructor
 shared_ptr<Entity> GenericProtocol::createEntity(
-    string name, EntitiesList &entities, ConnectionsMap &connections,
+    string name, EntitiesList &entities, ConnectionsMapPointer connections_ptr,
     function<void(string)> print_message) {
-    auto connect_lambda = [&connections](uuids::uuid source_entity_id,
-                                         uuids::uuid target_entity_id,
-                                         uuids::uuid message_id,
-                                         ConnectionStep step) {
-        Connection::connect(connections, {source_entity_id, target_entity_id,
-                                          message_id, step});
+    auto connect_lambda = [connections_ptr](uuids::uuid source_entity_id,
+                                            uuids::uuid target_entity_id,
+                                            uuids::uuid message_id,
+                                            ConnectionStep step) {
+        Connection::connect(
+            connections_ptr,
+            {source_entity_id, target_entity_id, message_id, step});
     };
     ConnectFunction connect_function = make_shared<
         function<void(ConnectFunctionParameters connect_function_parameters)>>(
@@ -156,10 +157,10 @@ shared_ptr<Entity> GenericProtocol::createEntity(
             apply(connect_lambda, params);
         });
 
-    auto remove_connection_lambda = [&connections](
+    auto remove_connection_lambda = [connections_ptr](
                                         uuids::uuid source_entity_id,
                                         uuids::uuid target_entity_id) {
-        Connection::removeConnection(connections,
+        Connection::removeConnection(connections_ptr,
                                      {source_entity_id, target_entity_id});
     };
     RemoveConnectionFunction remove_connection_function =
@@ -171,10 +172,10 @@ shared_ptr<Entity> GenericProtocol::createEntity(
             });
 
     auto is_connected_at_step_lambda =
-        [&connections](uuids::uuid source_entity_id,
-                       uuids::uuid target_entity_id, ConnectionStep step) {
+        [connections_ptr](uuids::uuid source_entity_id,
+                          uuids::uuid target_entity_id, ConnectionStep step) {
             return Connection::isConnectedAtStep(
-                connections, {source_entity_id, target_entity_id, step});
+                connections_ptr, {source_entity_id, target_entity_id, step});
         };
     IsConnectedAtStepFunction is_connected_at_step_function = make_shared<
         function<bool(IsConnectedAtStepFunctionParameters

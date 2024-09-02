@@ -11,6 +11,7 @@ class Connection;
 
 using ConnectionsMap =
     map<pair<uuids::uuid, uuids::uuid>, shared_ptr<Connection>>;
+using ConnectionsMapPointer = shared_ptr<ConnectionsMap>;
 
 class Connection {
    private:
@@ -30,12 +31,12 @@ class Connection {
     void removeConnection();
 
     /* Static Methods */
-    static void connect(ConnectionsMap connections,
+    static void connect(ConnectionsMapPointer connections_ptr,
                         ConnectFunctionParameters connect_function_parameters);
-    static void removeConnection(ConnectionsMap connections,
+    static void removeConnection(ConnectionsMapPointer connections_ptr,
                                  RemoveConnectionFunctionParameters
                                      remove_connection_function_parameters);
-    static bool isConnectedAtStep(ConnectionsMap connections,
+    static bool isConnectedAtStep(ConnectionsMapPointer connections_ptr,
                                   IsConnectedAtStepFunctionParameters
                                       is_connected_at_step_function_parameters);
 };
