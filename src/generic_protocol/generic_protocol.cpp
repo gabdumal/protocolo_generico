@@ -39,6 +39,11 @@ void GenericProtocol::run(
     output_stream << "Sending messages" << endl;
     protocol.sendData(entity_a, entity_b, data_fragments, output_stream);
 
+    protocol.printEntitiesStorage(output_stream);
+    output_stream << endl;
+    cout << output_stream.str();
+    output_stream.str("");
+
     cout << output_stream.str();
     output_stream.str("");
 }

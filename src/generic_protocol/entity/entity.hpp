@@ -45,6 +45,15 @@ using CanStoreDataFunctionParameters =
 using CanStoreDataFunction = shared_ptr<function<bool(
     CanStoreDataFunctionParameters can_store_data_function_parameters)>>;
 
+using EnqueuePackageFunctionParameters = tuple<uuids::uuid, uuids::uuid>;
+using EnqueuePackageFunction = shared_ptr<function<void(
+    EnqueuePackageFunctionParameters enqueue_package_function_parameters)>>;
+
+using InternalDequeuePackageFunctionParameters = tuple<uuids::uuid>;
+using DequeuePackageFunctionParameters = tuple<uuids::uuid, uuids::uuid>;
+using DequeuePackageFunction = shared_ptr<function<void(
+    DequeuePackageFunctionParameters dequeue_package_function_parameters)>>;
+
 class Entity {
    private:
     uuids::uuid id;
@@ -56,6 +65,8 @@ class Entity {
     IsConnectedAtStepFunction is_connected_at_step_function;
     CanSendPackageFunction can_send_package_function;
     CanStoreDataFunction can_store_data_function;
+    EnqueuePackageFunction enqueue_package_function;
+    DequeuePackageFunction dequeue_package_function;
 
     /* Methods */
 
@@ -91,7 +102,8 @@ class Entity {
            RemoveConnectionFunction remove_connection_function,
            IsConnectedAtStepFunction is_connected_at_step_function,
            CanSendPackageFunction can_send_package_function,
-           CanStoreDataFunction can_store_data_function)
+           CanStoreDataFunction can_store_data_function,
+           DequeuePackageFunction dequeue_package_function)
         : id(id),
           name(name),
           storage(""),
@@ -99,7 +111,8 @@ class Entity {
           remove_connection_function(remove_connection_function),
           is_connected_at_step_function(is_connected_at_step_function),
           can_send_package_function(can_send_package_function),
-          can_store_data_function(can_store_data_function) {}
+          can_store_data_function(can_store_data_function),
+          dequeue_package_function(dequeue_package_function) {}
 
     ~Entity() {}
 
@@ -132,6 +145,8 @@ class Entity {
                             can_send_package_function_parameters) const;
     bool canStoreData(InternalCanStoreDataFunctionParameters
                           can_store_data_function_parameters) const;
+    void dequeuePackage(InternalDequeuePackageFunctionParameters
+                            dequeue_package_function_parameters);
 };
 
 using EntitiesList = list<shared_ptr<Entity>>;

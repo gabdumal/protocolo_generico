@@ -188,9 +188,11 @@ optional<Package> Entity::receiveDataPackage(
     auto message = package.getMessage();
 
     Message error_message(uuid_generator, this->id, message.getSourceEntityId(),
-                          Message::Code::NACK, nullopt, message.getId());
+                          Message::Code::NACK, nullopt, nullopt);
 
     if (this->canStoreData({message.getSourceEntityId(), message.getId()})) {
+        this->dequeuePackage({message.getSourceEntityId()});
+
         this->storage += message.getContent() + "\n";
 
         Message ack_message(uuid_generator, this->id,

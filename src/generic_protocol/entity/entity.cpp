@@ -64,9 +64,21 @@ bool Entity::canStoreData(InternalCanStoreDataFunctionParameters
     return can_store_data;
 }
 
+void Entity::dequeuePackage(InternalDequeuePackageFunctionParameters
+                                dequeue_package_function_parameters) {
+    DequeuePackageFunctionParameters parameters = {
+        this->id, get<0>(dequeue_package_function_parameters)};
+    this->dequeue_package_function->operator()(parameters);
+}
+
 /* Methods */
 
 bool Entity::sendMessage(Message message, bool should_be_confirmed) {
+    // if (message.getCode() == Message::Code::DATA) {
+    //     if (!this->canStoreData({message.getTargetEntityId(),
+    //     message.getId()}))
+    //         return false;
+    // }
     return true;
 }
 

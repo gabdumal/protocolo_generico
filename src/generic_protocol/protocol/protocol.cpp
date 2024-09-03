@@ -19,11 +19,16 @@ Protocol::Protocol(shared_ptr<uuids::uuid_random_generator> uuid_generator,
         });
 }
 
-Protocol::~Protocol() {}
+Protocol::~Protocol() {
+    this->entities->clear();
+    this->connections->clear();
+    this->network->joinThreads();
+}
 
 /* Getters */
 
 shared_ptr<Entity> Protocol::getEntityById(uuids::uuid entity_id) {
+    if (this->entities == nullptr) return nullptr;
     for (auto entity : *this->entities) {
         if (entity->getId() == entity_id) {
             return entity;
@@ -102,10 +107,21 @@ uuids::uuid Protocol::createEntity(string name, ostringstream &output_stream) {
             return apply(can_store_data_lambda, params);
         });
 
+    auto dequeue_package_lambda = [this](uuids::uuid source_entity_id,
+                                         uuids::uuid target_entity_id) {
+        Connection::dequeuePackage(this->connections,
+                                   {source_entity_id, target_entity_id});
+    };
+    DequeuePackageFunction dequeue_package_function = make_shared<function<void(
+        DequeuePackageFunctionParameters dequeue_package_function_parameters)>>(
+        [dequeue_package_lambda](DequeuePackageFunctionParameters params) {
+            apply(dequeue_package_lambda, params);
+        });
+
     shared_ptr<Entity> entity = make_shared<Entity>(
         entity_id, name, connect_function, remove_connection_function,
         is_connected_at_step_function, can_send_package_function,
-        can_store_data_function);
+        can_store_data_function, dequeue_package_function);
 
     printInformation(
         entity->getName() + " [" + to_string(entity->getId()) + "]",
@@ -167,7 +183,7 @@ shared_ptr<Connection> Protocol::connectEntities(
         attempts++;
     }
 
-    printInformation("Connection failed", output_stream);
+    printInformation("Connection failed!", output_stream);
     return nullptr;
 }
 
@@ -187,41 +203,46 @@ void Protocol::sendData(uuids::uuid source_entity_id,
 
     shared_ptr<Connection> connection =
         this->connectEntities(source_entity, target_entity, output_stream);
+    if (connection == nullptr) {
+        this->printInformation("Could not send data!", output_stream);
+    }
 
-    // auto connection =
-    //     this->connections->find({source_entity_id, target_entity_id});
+    unsigned int sequence_number = 0;
+    for (auto content : contents) {
+        unsigned int attempts = 0;
+        connection->lockQueue();
+        while (!connection->canSendPackage() &&
+               attempts < GenericProtocolConstants::max_attempts_to_send_data) {
+            this_thread::sleep_for(
+                GenericProtocolConstants::interval_to_send_data);
+        }
+        if (attempts == GenericProtocolConstants::max_attempts_to_send_data) {
+            printInformation("Could not send data!", output_stream);
+            return;
+        }
 
-    // if (connection == this->connections->end()) {
-    //     printInformation("Connection not found", output_stream);
-    //     return;
-    // }
+        sequence_number++;
+        Message message =
+            Message(this->uuid_generator, source_entity_id, target_entity_id,
+                    Message::Code::DATA, nullopt, nullopt, content);
+        Package package(message, true, sequence_number);
 
-    // auto is_fully_connected =
-    //     connection != this->connections->end() &&
-    //     connection->second->isConnectedAtStep(ConnectionStep::ACK_ACK_SYN);
+        connection->enqueuePackage(message.getId());
+        this->network->receivePackage(package);
 
-    // if (!is_fully_connected) {
-    //     printInformation("Connecting entities", output_stream);
-    //     Message syn_message(this->uuid_generator, source_entity_id,
-    //                         target_entity_id, Message::Code::SYN, nullopt,
-    //                         nullopt, "");
-    //     Package syn_package(syn_message, true, 0);
-    // }
+        connection->unlockQueue();
 
-    // for (auto content : contents) {
-    //     Message message =
-    //         Message(this->uuid_generator, source_entity_id, target_entity_id,
-    //                 Message::Code::DATA, nullopt, nullopt, content);
-    //     Package package(message, true, 0);
+        package.print({[this, &output_stream](string information) {
+            this->printInformation(PrettyConsole::tab + information,
+                                   output_stream);
+        }});
+        output_stream << endl;
+        cout << output_stream.str();
+        output_stream.str("");
+    }
 
-    //     package.print({[this, &output_stream](string information) {
-    //         this->printInformation(PrettyConsole::tab + information,
-    //                                output_stream);
-    //     }});
-    //     output_stream << endl;
-    // }
-
-    // printInformation("Messages sent", output_stream);
+    this->network->joinThreads();
+    printInformation("Messages sent", output_stream);
 }
 
 /* Static methods */

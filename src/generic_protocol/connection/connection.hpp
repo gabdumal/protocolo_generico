@@ -28,10 +28,12 @@ class Connection {
     optional<uuids::uuid> ack_syn_message_id;
     optional<uuids::uuid> ack_ack_syn_message_id;
 
+    mutex queue_mutex;
     unsigned int buffer_size;
     shared_ptr<queue<uuids::uuid>> unconfirmed_sent_packages;
 
    public:
+    /* Construction */
     Connection(unsigned int buffer_size)
         : syn_message_id(nullopt),
           ack_syn_message_id(nullopt),
@@ -40,12 +42,21 @@ class Connection {
           unconfirmed_sent_packages(make_shared<queue<uuids::uuid>>()) {}
     ~Connection() {}
 
-    void connect(uuids::uuid message_id, ConnectionStep step);
-    void removeConnection();
+    /* Getters */
     bool isConnectedAtStep(ConnectionStep step);
     bool canSendPackage();
     bool canStoreData(uuids::uuid message_id);
+
+    /* Setters */
     void setLastDataMessageId(uuids::uuid message_id);
+
+    /* Methods */
+    void connect(uuids::uuid message_id, ConnectionStep step);
+    void removeConnection();
+    void enqueuePackage(uuids::uuid message_id);
+    void dequeuePackage();
+    void lockQueue();
+    void unlockQueue();
 
     /* Static Methods */
     static void connect(shared_ptr<ConnectionsMap> connections_ptr,
@@ -62,6 +73,12 @@ class Connection {
     static bool canStoreData(
         shared_ptr<ConnectionsMap> connections_ptr,
         CanStoreDataFunctionParameters can_store_data_function_parameters);
+    static void enqueuePackage(
+        shared_ptr<ConnectionsMap> connections_ptr,
+        EnqueuePackageFunctionParameters enqueue_package_function_parameters);
+    static void dequeuePackage(
+        shared_ptr<ConnectionsMap> connections_ptr,
+        DequeuePackageFunctionParameters dequeue_package_function_parameters);
 };
 
 #endif  // CONNECTION_HPP_

@@ -47,17 +47,36 @@ void Connection::removeConnection() {
 
 bool Connection::canSendPackage() {
     if (!this->isConnectedAtStep(ConnectionStep::ACK_ACK_SYN)) return false;
-    if (this->unconfirmed_sent_packages->size() >= this->buffer_size)
-        return false;
-    return true;
+    // this->queue_mutex.lock();
+    if (this->unconfirmed_sent_packages == nullptr) return false;
+    bool can_send_package =
+        this->unconfirmed_sent_packages->size() < this->buffer_size;
+    // this->queue_mutex.unlock();
+    return can_send_package;
 }
 
 bool Connection::canStoreData(uuids::uuid message_id) {
     if (!this->isConnectedAtStep(ConnectionStep::ACK_ACK_SYN)) return false;
+    // this->queue_mutex.lock();
+    if (this->unconfirmed_sent_packages == nullptr) return false;
+    if (this->unconfirmed_sent_packages->empty()) return false;
     auto front = this->unconfirmed_sent_packages->front();
-    if (front != message_id) return false;
-    return true;
+    bool can_store_data = front == message_id;
+    // this->queue_mutex.unlock();
+    return can_store_data;
 }
+
+void Connection::enqueuePackage(uuids::uuid message_id) {
+    this->unconfirmed_sent_packages->push(message_id);
+}
+
+void Connection::dequeuePackage() { this->unconfirmed_sent_packages->pop(); }
+
+void Connection::lockQueue() { this->queue_mutex.lock(); }
+
+void Connection::unlockQueue() { this->queue_mutex.unlock(); }
+
+/* Connections Map */
 
 void Connection::connect(
     shared_ptr<ConnectionsMap> connections,
@@ -175,4 +194,23 @@ bool Connection::canStoreData(
     }
 
     return false;
+}
+
+void Connection::dequeuePackage(
+    shared_ptr<ConnectionsMap> connections,
+    DequeuePackageFunctionParameters dequeue_package_function_parameters) {
+    if (connections == nullptr) return;
+
+    tuple<uuids::uuid, uuids::uuid> parameters =
+        dequeue_package_function_parameters;
+    uuids::uuid source_entity_id = get<0>(parameters);
+    uuids::uuid target_entity_id = get<1>(parameters);
+
+    auto &connections_obj = *connections;
+    pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
+
+    if (connections_obj.find(key) != connections_obj.end()) {
+        auto connection = connections_obj[key];
+        connection->dequeuePackage();
+    }
 }
