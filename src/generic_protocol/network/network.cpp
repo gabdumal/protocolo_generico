@@ -1,9 +1,9 @@
 #include "network.hpp"
 
+#include <functional>
 #include <generic_protocol_constants.hpp>
 #include <iostream>
 #include <memory>
-#include <optional>
 #include <pretty_console.hpp>
 
 #include "message.hpp"
@@ -13,16 +13,18 @@ using namespace std;
 
 /* Construction */
 
-Network::Network(string name,
-                 shared_ptr<uuids::uuid_random_generator> uuid_generator) {
+Network::Network(shared_ptr<uuids::uuid_random_generator> uuid_generator,
+                 string name,
+                 function<shared_ptr<Entity>(uuids::uuid)> get_entity_by_id) {
     this->uuid_generator = uuid_generator;
     this->name = name;
+    this->get_entity_by_id = get_entity_by_id;
 
-    this->unconfirmed_messages =
-        make_shared<map<uuids::uuid, MessageSending>>();
-    this->sending_messages_count = 0;
+    this->unconfirmed_packages =
+        make_shared<map<uuids::uuid, PackageSending>>();
+    this->sending_packages_count = 0;
     this->can_stop_sending_thread = false;
-    this->message_sending_thread =
+    this->package_sending_thread =
         thread([this]() { this->sendingThreadJob(); });
 
     this->packages_to_process = make_shared<queue<Package>>();
@@ -45,31 +47,20 @@ Network::~Network() {
 
 string Network::getName() const { return name; }
 
-/* Entities */
-
-void Network::connectEntity(shared_ptr<Entity> entity) {
-    lock_guard<mutex> lock(this->entities_mutex);
-    this->entities[entity->getId()] = entity;
-    this->package_processed_cv.notify_all();
-}
-
-void Network::disconnectEntity(uuids ::uuid entity_id) {
-    lock_guard<mutex> lock(this->entities_mutex);
-    this->entities.erase(entity_id);
-    this->package_processed_cv.notify_all();
+shared_ptr<Entity> Network::getEntityById(uuids::uuid entity_id) {
+    return this->get_entity_by_id(entity_id);
 }
 
 /* Main */
 
-bool Network::receiveMessage(Message message) {
-    Package package(message, true);
-    return this->receivePackage(package);
+bool Network::receivePackage(Package package) {
+    return this->internalReceivePackage(package);
 }
 
-bool Network::receivePackage(Package package) {
+bool Network::internalReceivePackage(Package package) {
     if (GenericProtocolConstants::debug_information) {
         this->printInformation(
-            "Package [" + to_string(package.message.getId()) +
+            "Package [" + to_string(package.getMessage().getId()) +
                 "] has been received in the network " + this->getName() + "!",
             cout, PrettyConsole::Color::GREEN);
     }
@@ -79,7 +70,7 @@ bool Network::receivePackage(Package package) {
 }
 
 bool Network::preprocessPackage(Package package, int attempt) {
-    auto message = package.message;
+    auto message = package.getMessage();
 
     if (GenericProtocolConstants::debug_information) {
         this->printInformation(
@@ -93,111 +84,80 @@ bool Network::preprocessPackage(Package package, int attempt) {
     return this->insertPackageIntoProcessingQueue(package);
 }
 
-void Network::processMessage(Package package) {
+void Network::processPackage(Package package) {
     this->simulateNetworkLatency();
-    this->simulatePacketCorruption(package.message);
+    this->simulatePacketCorruption(package);
 
     this->sendPackage(package);
-    this->finishMessageProcessing();
+    this->finishPackageProcessing();
 }
 
 /* Operational */
 
 void Network::sendPackage(Package &package) {
-    auto message = package.message;
-    bool should_be_confirmed = package.should_be_confirmed;
+    auto message = package.getMessage();
+    bool should_be_confirmed = package.shouldBeConfirmed();
 
-    lock_guard<mutex> lock(this->entities_mutex);
-    auto target_entity_pair = this->entities.find(message.getTargetEntityId());
-
-    if (target_entity_pair != entities.end()) {
-        shared_ptr<Entity> target_entity = target_entity_pair->second;
-
-        if (target_entity) {
-            auto source_entity_pair =
-                this->entities.find(message.getSourceEntityId());
-
-            if (source_entity_pair != entities.end()) {
-                shared_ptr<Entity> source_entity = source_entity_pair->second;
-
-                if (source_entity) {
-                    bool can_send_message = source_entity->sendMessage(
-                        message, should_be_confirmed);
-
-                    if (!can_send_message) {
-                        if (GenericProtocolConstants::debug_information) {
-                            this->printInformation(
-                                "Source entity " + source_entity->getName() +
-                                    " [" + to_string(source_entity->getId()) +
-                                    "] cannot send the message " + "[" +
-                                    to_string(message.getId()) + "]!",
-                                cout, PrettyConsole::Color::RED);
-                        }
-                    } else {
-                        if (GenericProtocolConstants::debug_information) {
-                            this->printInformation(
-                                "Message [" + to_string(message.getId()) +
-                                    "] has been sent to the target entity " +
-                                    target_entity->getName() + " [" +
-                                    to_string(target_entity->getId()) + "]!",
-                                cout, PrettyConsole::Color::GREEN);
-                        }
-
-                        Entity::Response response =
-                            target_entity->receiveMessage(message,
-                                                          this->uuid_generator);
-
-                        this->tryToConfirmSomeMessage(
-                            response.id_from_message_possibly_acknowledged);
-
-                        optional<Message> returned_message = response.message;
-                        if (returned_message) {
-                            if (GenericProtocolConstants::debug_information) {
-                                this->printInformation(
-                                    "Response message [" +
-                                        to_string(message.getId()) +
-                                        "] has been received in the network " +
-                                        this->getName() + "!",
-                                    cout, PrettyConsole::Color::GREEN);
-                            }
-                            this->receivePackage(
-                                Package(returned_message.value(),
-                                        response.should_be_confirmed));
-                        }
-                    }
-                } else {
-                    this->printInformation(
-                        "Source entity [" +
-                            to_string(message.getSourceEntityId()) +
-                            "] has been disconnected from the network " +
-                            this->getName() + "!",
-                        cerr, PrettyConsole::Color::RED);
-                    this->disconnectEntity(message.getSourceEntityId());
-                }
-            } else {
-                this->printInformation(
-                    "Source entity [" + to_string(message.getSourceEntityId()) +
-                        "] is not connected to the network " + this->getName() +
-                        "!",
-                    cerr, PrettyConsole::Color::RED);
-            }
-        } else {
-            this->printInformation(
-                "Target entity [" + to_string(message.getTargetEntityId()) +
-                    "] has been disconnected from the network " +
-                    this->getName() + "!",
-                cerr, PrettyConsole::Color::RED);
-            this->disconnectEntity(message.getTargetEntityId());
-        }
-    } else {
+    auto target_entity = this->getEntityById(message.getTargetEntityId());
+    if (!target_entity) {
         this->printInformation(
             "Target entity [" + to_string(message.getTargetEntityId()) +
                 "] is not connected to the network " + this->getName() + "!",
             cerr, PrettyConsole::Color::RED);
+        return;
+    }
+    auto source_entity = this->getEntityById(message.getSourceEntityId());
+    if (!source_entity) {
+        this->printInformation(
+            "Source entity [" + to_string(message.getSourceEntityId()) +
+                "] is not connected to the network " + this->getName() + "!",
+            cerr, PrettyConsole::Color::RED);
+    }
+
+    bool can_send_message =
+        source_entity->sendMessage(message, should_be_confirmed);
+
+    if (!can_send_message) {
+        if (GenericProtocolConstants::debug_information) {
+            this->printInformation("Source entity " + source_entity->getName() +
+                                       " [" +
+                                       to_string(source_entity->getId()) +
+                                       "] cannot send the message " + "[" +
+                                       to_string(message.getId()) + "]!",
+                                   cout, PrettyConsole::Color::RED);
+        }
+    } else {
+        if (GenericProtocolConstants::debug_information) {
+            this->printInformation("Message [" + to_string(message.getId()) +
+                                       "] has been sent to the target entity " +
+                                       target_entity->getName() + " [" +
+                                       to_string(target_entity->getId()) + "]!",
+                                   cout, PrettyConsole::Color::GREEN);
+        }
+
+        optional<Package> returned_package_container =
+            target_entity->receivePackage(package, this->uuid_generator);
+
+        if (!returned_package_container.has_value()) return;
+
+        auto returned_package = returned_package_container.value();
+
+        this->tryToConfirmSomePackage(
+            returned_package.getMessage().getIdFromMessageBeingAcknowledged());
+
+        if (GenericProtocolConstants::debug_information) {
+            this->printInformation("Response message [" +
+                                       to_string(message.getId()) +
+                                       "] has been received in the network " +
+                                       this->getName() + "!",
+                                   cout, PrettyConsole::Color::GREEN);
+        }
+
+        this->internalReceivePackage(returned_package);
     }
 }
 
-void Network::finishMessageProcessing() {
+void Network::finishPackageProcessing() {
     lock_guard<mutex> lock(this->packages_to_process_mutex);
     this->processing_packages_count--;
     if (processing_packages_count == 0) {
@@ -223,8 +183,8 @@ bool Network::insertPackageIntoProcessingQueue(Package package) {
 }
 
 void Network::joinSendingThread() {
-    if (this->message_sending_thread.joinable()) {
-        this->message_sending_thread.join();
+    if (this->package_sending_thread.joinable()) {
+        this->package_sending_thread.join();
     }
 }
 
@@ -236,13 +196,14 @@ void Network::joinProcessingThread() {
 
 void Network::joinThreads() {
     {
-        lock_guard<mutex> lock(this->unconfirmed_messages_mutex);
+        lock_guard<mutex> lock_sending(this->unconfirmed_packages_mutex);
         this->can_stop_sending_thread = true;
-        this->message_sent_cv.notify_all();
+        this->package_sent_cv.notify_all();
     }
     this->joinSendingThread();
+
     {
-        lock_guard<mutex> lock(this->packages_to_process_mutex);
+        lock_guard<mutex> lock_processing(this->packages_to_process_mutex);
         this->can_stop_processing_thread = true;
         this->package_processed_cv.notify_all();
     }
@@ -250,25 +211,26 @@ void Network::joinThreads() {
 }
 
 void Network::registerPackage(Package package) {
-    auto message = package.message;
-    bool should_be_confirmed = package.should_be_confirmed;
+    auto message = package.getMessage();
+    bool should_be_confirmed = package.shouldBeConfirmed();
 
-    auto source_entity_pair = this->entities.find(message.getSourceEntityId());
-    if (source_entity_pair == this->entities.end()) {
+    auto source_entity = this->getEntityById(message.getSourceEntityId());
+
+    if (source_entity == nullptr) {
         this->printInformation(
             "Source entity [" + to_string(message.getSourceEntityId()) +
                 "] is not connected to the network " + this->getName() + "!",
             cerr, PrettyConsole::Color::RED);
+        return;
     }
 
-    auto source_entity = source_entity_pair->second;
-    source_entity->printMessageInformation(message, cout, true);
+    source_entity->printPackageInformation(package, cout, true);
 
     if (!should_be_confirmed) return;
 
-    lock_guard<mutex> lock(this->unconfirmed_messages_mutex);
-    this->unconfirmed_messages->insert(
-        {message.getId(), MessageSending(message)});
+    lock_guard<mutex> lock(this->unconfirmed_packages_mutex);
+    this->unconfirmed_packages->insert(
+        {message.getId(), PackageSending(package)});
 }
 
 bool Network::hasPackageBeenLost(uuids::uuid message_id) {
@@ -291,14 +253,14 @@ void Network::simulateNetworkLatency() {
     this_thread::sleep_for(time_span);
 }
 
-void Network::simulatePacketCorruption(Message &message) {
+void Network::simulatePacketCorruption(Package &package) {
     if (rand() % 100 <
         GenericProtocolConstants::packet_corruption_probability * 100) {
-        this->printInformation("Message [" + to_string(message.getId()) +
-                                   "] has been corrupted in the network " +
-                                   this->getName() + "!",
-                               cout, PrettyConsole::Color::RED);
-        message.setCorrupted(true);
+        this->printInformation(
+            "Message [" + to_string(package.getMessage().getId()) +
+                "] has been corrupted in the network " + this->getName() + "!",
+            cout, PrettyConsole::Color::RED);
+        package.setCorrupted(true);
     }
 }
 
@@ -314,24 +276,24 @@ void Network::printInformation(string information, ostream &output_stream,
                            header_decoration, information_decoration);
 }
 
-void Network::tryToConfirmSomeMessage(
-    optional<uuids::uuid> id_from_message_possibly_acknowledged) {
-    if (id_from_message_possibly_acknowledged)
-        this->removeMessageFromUnconfirmedMessages(
-            id_from_message_possibly_acknowledged.value());
+void Network::tryToConfirmSomePackage(
+    optional<uuids::uuid> id_from_package_possibly_acknowledged) {
+    if (id_from_package_possibly_acknowledged)
+        this->removePackageFromUnconfirmedPackages(
+            id_from_package_possibly_acknowledged.value());
 }
 
-void Network::removeMessageFromUnconfirmedMessages(uuids::uuid message_id) {
-    lock_guard<mutex> lock(this->unconfirmed_messages_mutex);
-    auto it = this->unconfirmed_messages->find(message_id);
+void Network::removePackageFromUnconfirmedPackages(uuids::uuid package_id) {
+    lock_guard<mutex> lock(this->unconfirmed_packages_mutex);
+    auto it = this->unconfirmed_packages->find(package_id);
 
-    if (it != this->unconfirmed_messages->end()) {
+    if (it != this->unconfirmed_packages->end()) {
         if (GenericProtocolConstants::debug_information) {
             this->printInformation(
-                "Message [" + to_string(message_id) + "] has been confirmed!",
+                "Message [" + to_string(package_id) + "] has been confirmed!",
                 cout, PrettyConsole::Color::GREEN);
         }
-        this->unconfirmed_messages->erase(it);
+        this->unconfirmed_packages->erase(it);
     }
 }
 
@@ -339,43 +301,44 @@ void Network::removeMessageFromUnconfirmedMessages(uuids::uuid message_id) {
 
 void Network::sendingThreadJob() {
     while (true) {
-        unique_lock<mutex> lock(this->unconfirmed_messages_mutex);
+        unique_lock<mutex> lock(this->unconfirmed_packages_mutex);
 
-        // Finish job if there are no messages to send
-        if (this->can_stop_sending_thread && unconfirmed_messages->empty()) {
+        // Finish job if there are no packages to send
+        if (this->can_stop_sending_thread && unconfirmed_packages->empty()) {
             break;
         }
 
-        for (auto it = this->unconfirmed_messages->begin();
-             it != this->unconfirmed_messages->end();) {
-            MessageSending &message_sending = it->second;
+        for (auto it = this->unconfirmed_packages->begin();
+             it != this->unconfirmed_packages->end();) {
+            PackageSending &package_sending = it->second;
 
             // Check if the timeout has expired
             if (chrono::system_clock::now() -
-                    message_sending.last_attempt_time >
+                    package_sending.last_attempt_time >
                 GenericProtocolConstants::resend_timeout) {
                 // Check if the message has remaining attempts
-                if (message_sending.remaining_attempts > 0) {
-                    message_sending.last_attempt_time =
+                if (package_sending.remaining_attempts > 0) {
+                    package_sending.last_attempt_time =
                         chrono::system_clock::now();
-                    message_sending.remaining_attempts--;
+                    package_sending.remaining_attempts--;
                     lock.unlock();
                     this->preprocessPackage(
-                        Package(message_sending.message, true),
-                        GenericProtocolConstants::max_attempts_to_send_message -
-                            message_sending.remaining_attempts);
+                        package_sending.package,
+                        GenericProtocolConstants::max_attempts_to_send_package -
+                            package_sending.remaining_attempts);
                     lock.lock();
                 } else {
                     // Finished attempts to send the message
                     if (GenericProtocolConstants::debug_information) {
                         this->printInformation(
-                            "Message [" +
-                                to_string(message_sending.message.getId()) +
+                            "Package [" +
+                                to_string(package_sending.package.getMessage()
+                                              .getId()) +
                                 "] has been removed from the network " +
                                 this->getName() + "!",
                             cout, PrettyConsole::Color::RED);
                     }
-                    it = this->unconfirmed_messages->erase(it);
+                    it = this->unconfirmed_packages->erase(it);
                 }
             } else {
                 it++;
@@ -385,7 +348,7 @@ void Network::sendingThreadJob() {
         // Wait for a message to send
         lock.unlock();
         this_thread::sleep_for(chrono::milliseconds(
-            GenericProtocolConstants::interval_to_check_unconfirmed_messages));
+            GenericProtocolConstants::interval_to_check_unconfirmed_packages));
     }
 }
 
@@ -402,18 +365,11 @@ void Network::processingThreadJob() {
             auto package = this->packages_to_process->front();
             this->packages_to_process->pop();
             lock.unlock();
-            this->processMessage(package);
+            this->processPackage(package);
             lock.lock();
         } else {
             // Wait for a message to process
             this->package_processed_cv.wait(lock);
         }
     }
-}
-
-/* Static Methods */
-
-unique_ptr<Network> Network::createNetwork(
-    string name, shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    return unique_ptr<Network>(new Network(name, uuid_generator));
 }

@@ -6,12 +6,13 @@
 #include <functional>
 #include <list>
 #include <memory>
-#include <message.hpp>
 #include <pretty_console.hpp>
+
+#include "package.hpp"
 
 using namespace std;
 
-enum class ConnectionStep { NONE, SYN, ACK_SYN, ACK_ACK_SYN };
+enum class ConnectionStep { SYN, ACK_SYN, ACK_ACK_SYN };
 
 using InternalConnectFunctionParameters =
     tuple<uuids::uuid, uuids::uuid, ConnectionStep>;
@@ -33,52 +34,41 @@ using IsConnectedAtStepFunction =
     shared_ptr<function<bool(IsConnectedAtStepFunctionParameters
                                  is_connected_at_step_function_parameters)>>;
 
-using InternalCanStoreDataFunctionParameters =
-    tuple<uuids::uuid, optional<uuids::uuid>>;
+using InternalCanSendPackageFunctionParameters = tuple<uuids::uuid>;
+using CanSendPackageFunctionParameters = tuple<uuids::uuid, uuids::uuid>;
+using CanSendPackageFunction = shared_ptr<function<bool(
+    CanSendPackageFunctionParameters can_send_package_function_parameters)>>;
+
+using InternalCanStoreDataFunctionParameters = tuple<uuids::uuid, uuids::uuid>;
 using CanStoreDataFunctionParameters =
-    tuple<uuids::uuid, uuids::uuid, optional<uuids::uuid>>;
+    tuple<uuids::uuid, uuids::uuid, uuids::uuid>;
 using CanStoreDataFunction = shared_ptr<function<bool(
     CanStoreDataFunctionParameters can_store_data_function_parameters)>>;
 
-using InternalSetLastDataMessageIdFunctionParameters =
+using EnqueuePackageFunctionParameters = tuple<uuids::uuid, uuids::uuid>;
+using EnqueuePackageFunction = shared_ptr<function<void(
+    EnqueuePackageFunctionParameters enqueue_package_function_parameters)>>;
+
+using InternalDequeuePackageFunctionParameters =
     tuple<uuids::uuid, uuids::uuid>;
-using SetLastDataMessageIdFunctionParameters =
+using DequeuePackageFunctionParameters =
     tuple<uuids::uuid, uuids::uuid, uuids::uuid>;
-using SetLastDataMessageIdFunction =
-    shared_ptr<function<void(SetLastDataMessageIdFunctionParameters
-                                 set_last_data_message_id_parameters)>>;
+using DequeuePackageFunction = shared_ptr<function<void(
+    DequeuePackageFunctionParameters dequeue_package_function_parameters)>>;
 
 class Entity {
-   public:
-    struct Response {
-        optional<Message> message;
-        bool should_be_confirmed;
-        optional<uuids::uuid> id_from_message_possibly_acknowledged;
-
-        Response(optional<Message> message, bool should_be_confirmed,
-                 optional<uuids::uuid> id_from_message_possibly_acknowledged)
-            : message(message),
-              should_be_confirmed(should_be_confirmed),
-              id_from_message_possibly_acknowledged(
-                  id_from_message_possibly_acknowledged) {}
-    };
-
    private:
-    struct MessageConsequence {
-        bool should_send_message;
-        bool should_lock_entity;
-    };
-
     uuids::uuid id;
     string name;
     string storage;
-    optional<Message> last_unacknowledged_message;
 
     ConnectFunction connect_function;
     RemoveConnectionFunction remove_connection_function;
     IsConnectedAtStepFunction is_connected_at_step_function;
+    CanSendPackageFunction can_send_package_function;
     CanStoreDataFunction can_store_data_function;
-    SetLastDataMessageIdFunction set_last_data_message_id_function;
+    EnqueuePackageFunction enqueue_package_function;
+    DequeuePackageFunction dequeue_package_function;
 
     /* Methods */
 
@@ -86,26 +76,26 @@ class Entity {
         string information, ostream &output_stream,
         PrettyConsole::Color color = PrettyConsole::Color::DEFAULT) const;
 
-    Response receiveSynMessage(
-        const Message &message,
+    optional<Package> receiveSynPackage(
+        const Package &package,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    Response receiveFinMessage(
-        const Message &message,
+    optional<Package> receiveFinPackage(
+        const Package &package,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    Response receiveAckMessage(
-        const Message &message,
+    optional<Package> receiveAckPackage(
+        const Package &package,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    Response receiveAckSynMessage(
-        const Message &message, uuids::uuid sent_message_id,
+    optional<Package> receiveAckSynPackage(
+        const Package &package, uuids::uuid sent_message_id,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    Response receiveAckAckSynMessage(
-        const Message &message, uuids::uuid sent_message_id,
+    optional<Package> receiveAckAckSynPackage(
+        const Package &package, uuids::uuid sent_message_id,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    Response receiveNackMessage(
-        const Message &message,
+    optional<Package> receiveNackPackage(
+        const Package &package,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    Response receiveDataMessage(
-        const Message &message,
+    optional<Package> receiveDataPackage(
+        const Package &package,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
 
    public:
@@ -113,18 +103,18 @@ class Entity {
     Entity(uuids::uuid id, string name, ConnectFunction connect_function,
            RemoveConnectionFunction remove_connection_function,
            IsConnectedAtStepFunction is_connected_at_step_function,
+           CanSendPackageFunction can_send_package_function,
            CanStoreDataFunction can_store_data_function,
-           SetLastDataMessageIdFunction set_last_data_message_id_function)
+           DequeuePackageFunction dequeue_package_function)
         : id(id),
           name(name),
           storage(""),
-          last_unacknowledged_message(nullopt),
           connect_function(connect_function),
           remove_connection_function(remove_connection_function),
           is_connected_at_step_function(is_connected_at_step_function),
+          can_send_package_function(can_send_package_function),
           can_store_data_function(can_store_data_function),
-          set_last_data_message_id_function(set_last_data_message_id_function) {
-    }
+          dequeue_package_function(dequeue_package_function) {}
 
     ~Entity() {}
 
@@ -139,11 +129,11 @@ class Entity {
     bool canSendMessage(uuids::uuid message_id) const;
 
     bool sendMessage(Message message, bool should_be_confirmed);
-    Response receiveMessage(
-        const Message &message,
+    optional<Package> receivePackage(
+        Package package,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
 
-    void printMessageInformation(const Message &message, ostream &output_stream,
+    void printPackageInformation(Package package, ostream &output_stream,
                                  bool is_sending) const;
     void printStorage(function<void(string)> print_message) const;
 
@@ -153,10 +143,12 @@ class Entity {
                               remove_connection_function_parameters);
     bool isConnectedAtStep(InternalIsConnectedAtStepFunctionParameters
                                is_connected_at_step_function_parameters) const;
+    bool canSendPackage(InternalCanSendPackageFunctionParameters
+                            can_send_package_function_parameters) const;
     bool canStoreData(InternalCanStoreDataFunctionParameters
                           can_store_data_function_parameters) const;
-    void setLastDataMessageId(InternalSetLastDataMessageIdFunctionParameters
-                                  set_last_data_message_id_parameters);
+    void dequeuePackage(InternalDequeuePackageFunctionParameters
+                            dequeue_package_function_parameters);
 };
 
 using EntitiesList = list<shared_ptr<Entity>>;

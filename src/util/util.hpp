@@ -7,13 +7,14 @@
 using namespace std;
 
 namespace Util {
-
     void printInformation(string header, string information,
                           ostream &output_stream = cout,
                           PrettyConsole::Decoration header_decoration =
                               PrettyConsole::Decoration(),
                           PrettyConsole::Decoration information_decoration =
                               PrettyConsole::Decoration());
+
+    string getFormattedBool(bool value);
 
     string getTextBetween(string text, optional<string> start,
                           optional<string> end);

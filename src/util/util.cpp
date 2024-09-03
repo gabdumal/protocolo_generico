@@ -25,6 +25,8 @@ void Util::printInformation(string header, string information,
     output_stream << intermediate_stream.str();
 }
 
+string Util::getFormattedBool(bool value) { return value ? "TRUE" : "FALSE"; }
+
 string Util::getTextBetween(string text, optional<string> start,
                             optional<string> end) {
     size_t start_position = 0;

@@ -3,14 +3,13 @@
 #include <memory>
 
 #include "entity.hpp"
+#include "generic_protocol_constants.hpp"
 #include "uuid.h"
 
 using namespace std;
 
 bool Connection::isConnectedAtStep(ConnectionStep step) {
     switch (step) {
-        case ConnectionStep::NONE:
-            return true;
         case ConnectionStep::SYN:
             return this->syn_message_id.has_value();
         case ConnectionStep::ACK_SYN:
@@ -42,34 +41,52 @@ void Connection::removeConnection() {
     this->syn_message_id = nullopt;
     this->ack_syn_message_id = nullopt;
     this->ack_ack_syn_message_id = nullopt;
-    this->last_data_message_id = nullopt;
+    while (!this->unconfirmed_sent_packages->empty())
+        this->unconfirmed_sent_packages->pop();
 }
 
-bool Connection::canStoreData(optional<uuids::uuid> message_id_container) {
-    if (this->last_data_message_id.has_value()) {
-        if (message_id_container.has_value()) {
-            return this->last_data_message_id.value() ==
-                   message_id_container.value();
-        } else {
-            return false;
-        }
-    } else {
-        if (message_id_container.has_value()) {
-            return false;
-        } else {
-            return true;
-        }
-    }
+bool Connection::canSendPackage() {
+    if (!this->isConnectedAtStep(ConnectionStep::ACK_ACK_SYN)) return false;
+    // this->queue_mutex.lock();
+    if (this->unconfirmed_sent_packages == nullptr) return false;
+    bool can_send_package =
+        this->unconfirmed_sent_packages->size() < this->buffer_size;
+    // this->queue_mutex.unlock();
+    return can_send_package;
 }
 
-void Connection::setLastDataMessageId(uuids::uuid message_id) {
-    this->last_data_message_id = message_id;
+bool Connection::canStoreData(uuids::uuid message_id) {
+    if (!this->isConnectedAtStep(ConnectionStep::ACK_ACK_SYN)) return false;
+    // this->queue_mutex.lock();
+    if (this->unconfirmed_sent_packages == nullptr) return false;
+    if (this->unconfirmed_sent_packages->empty()) return false;
+    auto front = this->unconfirmed_sent_packages->front();
+    bool can_store_data = front == message_id;
+    // this->queue_mutex.unlock();
+    return can_store_data;
 }
+
+void Connection::enqueuePackage(uuids::uuid message_id) {
+    this->unconfirmed_sent_packages->push(message_id);
+}
+
+void Connection::dequeuePackage(uuids::uuid message_id) {
+    if (this->unconfirmed_sent_packages == nullptr) return;
+    if (this->unconfirmed_sent_packages->empty()) return;
+    if (this->unconfirmed_sent_packages->front() != message_id) return;
+    this->unconfirmed_sent_packages->pop();
+}
+
+void Connection::lockQueue() { this->queue_mutex.lock(); }
+
+void Connection::unlockQueue() { this->queue_mutex.unlock(); }
+
+/* Connections Map */
 
 void Connection::connect(
-    ConnectionsMapPointer connections_ptr,
+    shared_ptr<ConnectionsMap> connections,
     ConnectFunctionParameters connect_function_parameters) {
-    if (connections_ptr == nullptr) return;
+    if (connections == nullptr) return;
 
     tuple<uuids::uuid, uuids::uuid, uuids::uuid, ConnectionStep> parameters =
         connect_function_parameters;
@@ -78,45 +95,45 @@ void Connection::connect(
     uuids::uuid message_id = get<2>(parameters);
     ConnectionStep step = get<3>(parameters);
 
-    auto &connections = *connections_ptr;
+    auto &connections_obj = *connections;
     pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
 
-    if (connections.find(key) == connections.end()) {
-        auto connection = make_shared<Connection>();
+    if (connections_obj.find(key) == connections_obj.end()) {
+        auto connection = make_shared<Connection>(
+            GenericProtocolConstants::connection_buffer_size);
         connection->connect(message_id, step);
-        connections.insert({key, connection});
+        connections_obj.insert({key, connection});
 
     } else {
-        auto connection = connections[key];
+        auto connection = connections_obj[key];
         connection->connect(message_id, step);
     }
 }
 
 void Connection::removeConnection(
-    ConnectionsMapPointer connections_ptr,
+    shared_ptr<ConnectionsMap> connections,
     RemoveConnectionFunctionParameters remove_connection_function_parameters) {
-    if (connections_ptr == nullptr) return;
+    if (connections == nullptr) return;
 
     tuple<uuids::uuid, uuids::uuid> parameters =
         remove_connection_function_parameters;
     uuids::uuid source_entity_id = get<0>(parameters);
     uuids::uuid target_entity_id = get<1>(parameters);
 
-    auto &connections = *connections_ptr;
+    auto &connections_obj = *connections;
     pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
 
-    if (connections.find(key) != connections.end()) {
-        auto connection = connections[key];
+    if (connections_obj.find(key) != connections_obj.end()) {
+        auto connection = connections_obj[key];
         connection->removeConnection();
-        connections.erase(key);
     }
 }
 
 bool Connection::isConnectedAtStep(
-    ConnectionsMapPointer connections_ptr,
+    shared_ptr<ConnectionsMap> connections,
     IsConnectedAtStepFunctionParameters
         is_connected_at_step_function_parameters) {
-    if (connections_ptr == nullptr) return false;
+    if (connections == nullptr) return false;
 
     tuple<uuids::uuid, uuids::uuid, ConnectionStep> parameters =
         is_connected_at_step_function_parameters;
@@ -124,11 +141,11 @@ bool Connection::isConnectedAtStep(
     uuids::uuid target_entity_id = get<1>(parameters);
     ConnectionStep step = get<2>(parameters);
 
-    auto &connections = *connections_ptr;
+    auto &connections_obj = *connections;
     pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
 
-    if (connections.find(key) != connections.end()) {
-        auto connection = connections[key];
+    if (connections_obj.find(key) != connections_obj.end()) {
+        auto connection = connections_obj[key];
         auto is_connected_at_step = connection->isConnectedAtStep(step);
         return is_connected_at_step;
     }
@@ -136,48 +153,70 @@ bool Connection::isConnectedAtStep(
     return false;
 }
 
-bool Connection::canStoreData(
-    ConnectionsMapPointer connections_ptr,
-    CanStoreDataFunctionParameters can_store_data_function_parameters) {
-    if (connections_ptr == nullptr) return false;
+bool Connection::canSendPackage(
+    shared_ptr<ConnectionsMap> connections,
+    CanSendPackageFunctionParameters can_send_data_function_parameters) {
+    if (connections == nullptr) return false;
 
-    tuple<uuids::uuid, uuids::uuid, optional<uuids::uuid>> parameters =
+    tuple<uuids::uuid, uuids::uuid> parameters =
+        can_send_data_function_parameters;
+    uuids::uuid source_entity_id = get<0>(parameters);
+    uuids::uuid target_entity_id = get<1>(parameters);
+
+    auto &connections_obj = *connections;
+    pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
+
+    if (connections_obj.find(key) != connections_obj.end()) {
+        auto connection = connections_obj[key];
+        auto can_send_data = connection->canSendPackage();
+        return can_send_data;
+    }
+
+    return false;
+}
+
+bool Connection::canStoreData(
+    shared_ptr<ConnectionsMap> connections,
+    CanStoreDataFunctionParameters can_store_data_function_parameters) {
+    if (connections == nullptr) return false;
+
+    tuple<uuids::uuid, uuids::uuid, uuids::uuid> parameters =
         can_store_data_function_parameters;
     uuids::uuid source_entity_id = get<0>(parameters);
     uuids::uuid target_entity_id = get<1>(parameters);
-    optional<uuids::uuid> message_id_container = get<2>(parameters);
+    uuids::uuid message_id = get<2>(parameters);
 
-    auto &connections = *connections_ptr;
+    auto &connections_obj = *connections;
     pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
 
-    if (connections.find(key) != connections.end()) {
-        auto connection = connections[key];
+    if (connections_obj.find(key) != connections_obj.end()) {
+        auto connection = connections_obj[key];
         auto is_fully_connected =
             connection->isConnectedAtStep(ConnectionStep::ACK_ACK_SYN);
         if (!is_fully_connected) return false;
-        auto can_store_data = connection->canStoreData(message_id_container);
+        auto can_store_data = connection->canStoreData(message_id);
         return can_store_data;
     }
 
     return false;
 }
 
-void Connection::setLastDataMessageId(ConnectionsMapPointer connections_ptr,
-                                      SetLastDataMessageIdFunctionParameters
-                                          set_last_data_message_id_parameters) {
-    if (connections_ptr == nullptr) return;
+void Connection::dequeuePackage(
+    shared_ptr<ConnectionsMap> connections,
+    DequeuePackageFunctionParameters dequeue_package_function_parameters) {
+    if (connections == nullptr) return;
 
     tuple<uuids::uuid, uuids::uuid, uuids::uuid> parameters =
-        set_last_data_message_id_parameters;
+        dequeue_package_function_parameters;
     uuids::uuid source_entity_id = get<0>(parameters);
     uuids::uuid target_entity_id = get<1>(parameters);
     uuids::uuid message_id = get<2>(parameters);
 
-    auto &connections = *connections_ptr;
+    auto &connections_obj = *connections;
     pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
 
-    if (connections.find(key) != connections.end()) {
-        auto connection = connections[key];
-        connection->setLastDataMessageId(message_id);
+    if (connections_obj.find(key) != connections_obj.end()) {
+        auto connection = connections_obj[key];
+        connection->dequeuePackage(message_id);
     }
 }
