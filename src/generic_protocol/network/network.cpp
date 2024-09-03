@@ -13,8 +13,8 @@ using namespace std;
 
 /* Construction */
 
-Network::Network(string name,
-                 shared_ptr<uuids::uuid_random_generator> uuid_generator,
+Network::Network(shared_ptr<uuids::uuid_random_generator> uuid_generator,
+                 string name,
                  function<shared_ptr<Entity>(uuids::uuid)> get_entity_by_id) {
     this->uuid_generator = uuid_generator;
     this->name = name;
@@ -372,13 +372,4 @@ void Network::processingThreadJob() {
             this->package_processed_cv.wait(lock);
         }
     }
-}
-
-/* Static Methods */
-
-unique_ptr<Network> Network::createNetwork(
-    string name, shared_ptr<uuids::uuid_random_generator> uuid_generator,
-    function<shared_ptr<Entity>(uuids::uuid)> get_entity_by_id) {
-    return unique_ptr<Network>(
-        new Network(name, uuid_generator, get_entity_by_id));
 }

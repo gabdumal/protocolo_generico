@@ -1,15 +1,22 @@
 #include "protocol.hpp"
 
 #include "entity.hpp"
+#include "message.hpp"
+#include "package.hpp"
 
 using namespace std;
 
 /* Construction */
 
-Protocol::Protocol(shared_ptr<uuids::uuid_random_generator> uuid_generator) {
+Protocol::Protocol(shared_ptr<uuids::uuid_random_generator> uuid_generator,
+                   string network_name) {
     this->uuid_generator = uuid_generator;
     this->entities = make_shared<EntitiesList>();
     this->connections = make_shared<ConnectionsMap>();
+    this->network = make_unique<Network>(
+        this->uuid_generator, network_name, [this](uuids::uuid entity_id) {
+            return this->getEntityById(entity_id);
+        });
 }
 
 Protocol::~Protocol() {}
@@ -96,15 +103,16 @@ uuids::uuid Protocol::createEntity(string name, ostringstream &output_stream) {
         });
 
     shared_ptr<Entity> entity = make_shared<Entity>(
-        this->uuid_generator->operator()(), name, connect_function,
-        remove_connection_function, is_connected_at_step_function,
-        can_send_package_function, can_store_data_function);
+        entity_id, name, connect_function, remove_connection_function,
+        is_connected_at_step_function, can_send_package_function,
+        can_store_data_function);
 
-    printMessage(entity->getName() + " [" + to_string(entity->getId()) + "]",
-                 output_stream);
+    printInformation(
+        entity->getName() + " [" + to_string(entity->getId()) + "]",
+        output_stream);
 
     entity->printStorage({[this, &output_stream](string message) {
-        this->printMessage(PrettyConsole::tab + message, output_stream);
+        this->printInformation(PrettyConsole::tab + message, output_stream);
     }});
 
     this->entities->push_back(entity);
@@ -112,26 +120,114 @@ uuids::uuid Protocol::createEntity(string name, ostringstream &output_stream) {
     return entity_id;
 }
 
+shared_ptr<Connection> Protocol::connectEntities(
+    shared_ptr<Entity> source_entity, shared_ptr<Entity> target_entity,
+    ostringstream &output_stream) {
+    if (source_entity == nullptr) {
+        printInformation("Source entity not found", output_stream);
+        return nullptr;
+    }
+    if (target_entity == nullptr) {
+        printInformation("Target entity not found", output_stream);
+        return nullptr;
+    }
+
+    auto connection_it = this->connections->find(
+        {source_entity->getId(), target_entity->getId()});
+    shared_ptr<Connection> connection = nullptr;
+
+    if (connection_it != this->connections->end()) {
+        connection = connection_it->second;
+        if (connection->isConnectedAtStep(ConnectionStep::ACK_ACK_SYN)) {
+            printInformation("Connection already exists", output_stream);
+            return connection;
+        }
+    }
+
+    Message syn_message(this->uuid_generator, source_entity->getId(),
+                        target_entity->getId(), Message::Code::SYN, nullopt,
+                        nullopt, "");
+    Package syn_package(syn_message, true, 0);
+
+    this->network->receivePackage(syn_package);
+
+    unsigned int attempts = 0;
+    while (attempts < GenericProtocolConstants::max_attempts_to_connect) {
+        auto connection_it = this->connections->find(
+            {source_entity->getId(), target_entity->getId()});
+        if (connection_it != this->connections->end()) {
+            connection = connection_it->second;
+            if (connection->isConnectedAtStep(ConnectionStep::ACK_ACK_SYN)) {
+                printInformation("Entities connected", output_stream);
+                return connection;
+            }
+        }
+        this_thread::sleep_for(
+            GenericProtocolConstants::interval_to_check_connections);
+        attempts++;
+    }
+
+    printInformation("Connection failed", output_stream);
+    return nullptr;
+}
+
 void Protocol::sendData(uuids::uuid source_entity_id,
                         uuids::uuid target_entity_id, deque<string> contents,
                         ostringstream &output_stream) {
     shared_ptr<Entity> source_entity = this->getEntityById(source_entity_id);
-    shared_ptr<Entity> target_entity = this->getEntityById(target_entity_id);
     if (source_entity == nullptr) {
-        printMessage("Source entity not found", output_stream);
+        printInformation("Source entity not found", output_stream);
         return;
     }
+    shared_ptr<Entity> target_entity = this->getEntityById(target_entity_id);
     if (target_entity == nullptr) {
-        printMessage("Target entity not found", output_stream);
+        printInformation("Target entity not found", output_stream);
         return;
     }
 
-    
+    shared_ptr<Connection> connection =
+        this->connectEntities(source_entity, target_entity, output_stream);
+
+    // auto connection =
+    //     this->connections->find({source_entity_id, target_entity_id});
+
+    // if (connection == this->connections->end()) {
+    //     printInformation("Connection not found", output_stream);
+    //     return;
+    // }
+
+    // auto is_fully_connected =
+    //     connection != this->connections->end() &&
+    //     connection->second->isConnectedAtStep(ConnectionStep::ACK_ACK_SYN);
+
+    // if (!is_fully_connected) {
+    //     printInformation("Connecting entities", output_stream);
+    //     Message syn_message(this->uuid_generator, source_entity_id,
+    //                         target_entity_id, Message::Code::SYN, nullopt,
+    //                         nullopt, "");
+    //     Package syn_package(syn_message, true, 0);
+    // }
+
+    // for (auto content : contents) {
+    //     Message message =
+    //         Message(this->uuid_generator, source_entity_id, target_entity_id,
+    //                 Message::Code::DATA, nullopt, nullopt, content);
+    //     Package package(message, true, 0);
+
+    //     package.print({[this, &output_stream](string information) {
+    //         this->printInformation(PrettyConsole::tab + information,
+    //                                output_stream);
+    //     }});
+    //     output_stream << endl;
+    // }
+
+    // printInformation("Messages sent", output_stream);
 }
 
 /* Static methods */
-void Protocol::printMessage(string message, ostringstream &output_stream) {
-    output_stream << message << endl;
+void Protocol::printInformation(string information,
+                                ostringstream &output_stream) {
+    output_stream << information << endl;
 }
 
 void Protocol::printEntitiesStorage(ostringstream &output_stream) {
@@ -141,7 +237,7 @@ void Protocol::printEntitiesStorage(ostringstream &output_stream) {
         output_stream << entity->getName() << " [" << entity->getId() << "]"
                       << endl;
         entity->printStorage({[this, &output_stream](string message) {
-            this->printMessage(PrettyConsole::tab + message, output_stream);
+            this->printInformation(PrettyConsole::tab + message, output_stream);
         }});
     }
 }

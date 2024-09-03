@@ -24,10 +24,11 @@ void Package::setIdFromMessageBeingAcknowledged(uuids::uuid id_from_message) {
 
 /* Methods */
 
-void Package::print(function<void(string)> print_message) const {
-    this->message.print(print_message);
-    print_message("Should be confirmed: " +
-                  Util::getFormattedBool(this->should_be_confirmed));
-    print_message("Sequence number: " + to_string(this->sequence_number));
-    print_message("Corrupted: " + Util::getFormattedBool(this->is_corrupted));
+void Package::print(function<void(string)> print_information) const {
+    this->message.print(print_information);
+    print_information("Should be confirmed: " +
+                      Util::getFormattedBool(this->should_be_confirmed));
+    print_information("Sequence number: " + to_string(this->sequence_number));
+    print_information("Corrupted: " +
+                      Util::getFormattedBool(this->is_corrupted));
 }

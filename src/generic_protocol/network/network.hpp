@@ -58,11 +58,6 @@ class Network {
                                // has been processed
     bool can_stop_processing_thread;
 
-    /* Construction */
-    Network(string name,
-            shared_ptr<uuids::uuid_random_generator> uuid_generator,
-            function<shared_ptr<Entity>(uuids::uuid)> get_entity_by_id);
-
     /* Methods */
     shared_ptr<Entity> getEntityById(uuids::uuid entity_id);
 
@@ -93,7 +88,10 @@ class Network {
         PrettyConsole::Color color = PrettyConsole::Color::DEFAULT) const;
 
    public:
-    /* Destruction */
+    /* Construction */
+    Network(shared_ptr<uuids::uuid_random_generator> uuid_generator,
+            string name,
+            function<shared_ptr<Entity>(uuids::uuid)> get_entity_by_id);
     ~Network();
 
     /* Getters */
@@ -102,11 +100,6 @@ class Network {
     /* Methods */
     bool receivePackage(Package package);
     void joinThreads();
-
-    /* Static Methods */
-    static unique_ptr<Network> createNetwork(
-        string name, shared_ptr<uuids::uuid_random_generator> uuid_generator,
-        function<shared_ptr<Entity>(uuids::uuid)> get_entity_by_id);
 };
 
 #endif  // NETWORK_HPP_

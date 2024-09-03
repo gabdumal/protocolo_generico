@@ -26,6 +26,7 @@ class Message {
     };
 
     static string codeToString(Code code);
+    static string codeVariantToString(CodeVariant code_variant);
 
    private:
     uuids::uuid id;
@@ -42,7 +43,15 @@ class Message {
             uuids::uuid source_entity_id, uuids::uuid target_entity_id,
             Code code, optional<CodeVariant> code_variant,
             optional<uuids::uuid> id_from_message_being_acknowledged,
-            string content);
+            string content)
+        : id(uuid_generator->operator()()),
+          source_entity_id(source_entity_id),
+          target_entity_id(target_entity_id),
+          code(code),
+          code_variant(code_variant),
+          id_from_message_being_acknowledged(
+              id_from_message_being_acknowledged),
+          content(content) {}
 
     Message(shared_ptr<uuids::uuid_random_generator> uuid_generator,
             uuids::uuid source_entity_id, uuids::uuid target_entity_id,
@@ -51,7 +60,7 @@ class Message {
         : Message(uuid_generator, source_entity_id, target_entity_id, code,
                   code_variant, id_from_message_being_acknowledged, "") {}
 
-    ~Message();
+    ~Message() {}
 
     /* Getters */
     uuids::uuid getId() const;

@@ -119,6 +119,9 @@ optional<Package> Entity::receiveAckPackage(
                     package, previously_sent_message_id.value(),
                     uuid_generator);
 
+            else if (variant.value() == Message::CodeVariant::ACK_ACK_ACK_SYN)
+                return nullopt;
+
         } else {  // Wrongfully received an ACK message
             if (variant.value() == Message::CodeVariant::ACK_SYN)
                 error_message.setCodeVariant(

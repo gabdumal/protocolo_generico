@@ -24,7 +24,7 @@ class Package {
     Package(Message message, bool should_be_confirmed)
         : Package(message, should_be_confirmed, 0) {}
 
-    ~Package();
+    ~Package() {}
 
     /* Getters */
     Message getMessage() const;
@@ -36,7 +36,7 @@ class Package {
     void setIdFromMessageBeingAcknowledged(uuids::uuid id_from_message);
 
     /* Methods */
-    void print(function<void(string)> print_message) const;
+    void print(function<void(string)> print_information) const;
 };
 
 #endif  // PACKAGE_HPP_

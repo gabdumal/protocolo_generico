@@ -21,24 +21,34 @@ string Message::codeToString(Message::Code code) {
     }
 }
 
-/* Construction */
-
-Message::Message(shared_ptr<uuids::uuid_random_generator> uuid_generator,
-                 uuids::uuid source_entity_id, uuids::uuid target_entity_id,
-                 Code code, optional<CodeVariant> code_variant,
-                 optional<uuids::uuid> id_from_message_being_acknowledged,
-                 string content) {
-    this->id = (*uuid_generator)();
-    this->source_entity_id = source_entity_id;
-    this->target_entity_id = target_entity_id;
-    this->code = code;
-    this->code_variant = code_variant;
-    this->id_from_message_being_acknowledged =
-        id_from_message_being_acknowledged;
-    this->content = content;
+string Message::codeVariantToString(Message::CodeVariant code_variant) {
+    switch (code_variant) {
+        case Message::CodeVariant::ACK:
+            return "ACK";
+        case Message::CodeVariant::ACK_SYN:
+            return "ACK_SYN";
+        case Message::CodeVariant::ACK_ACK_SYN:
+            return "ACK_ACK_SYN";
+        case Message::CodeVariant::ACK_ACK_ACK_SYN:
+            return "ACK_ACK_ACK_SYN";
+        case Message::CodeVariant::ACK_FIN:
+            return "ACK_FIN";
+        case Message::CodeVariant::ACK_ACK_FIN:
+            return "ACK_ACK_FIN";
+        case Message::CodeVariant::NACK:
+            return "NACK";
+        case Message::CodeVariant::NACK_SYN:
+            return "NACK_SYN";
+        case Message::CodeVariant::NACK_ACK_SYN:
+            return "NACK_ACK_SYN";
+        case Message::CodeVariant::NACK_ACK_ACK_SYN:
+            return "NACK_ACK_ACK_SYN";
+        case Message::CodeVariant::NACK_FIN:
+            return "NACK_FIN";
+        default:
+            return "UNKNOWN";
+    }
 }
-
-Message::~Message() {}
 
 /* Getters */
 
@@ -76,18 +86,28 @@ void Message::setIdFromMessageBeingAcknowledged(uuids::uuid id_from_message) {
 
 /* Methods */
 
-void Message::print(std::function<void(std::string)> print_message) const {
-    print_message("ID: " + uuids::to_string(this->getId()));
-    print_message("Source entity ID: " +
-                  uuids::to_string(this->getSourceEntityId()));
-    print_message("Target entity ID: " +
-                  uuids::to_string(this->getTargetEntityId()));
-    print_message("Code: " + codeToString(this->getCode()));
-    print_message("=== BEGIN ===");
+void Message::print(std::function<void(std::string)> print_information) const {
+    print_information("ID: " + uuids::to_string(this->getId()));
+    print_information("Source entity ID: " +
+                      uuids::to_string(this->getSourceEntityId()));
+    print_information("Target entity ID: " +
+                      uuids::to_string(this->getTargetEntityId()));
+    print_information("Code: " + codeToString(this->getCode()));
+    print_information("Code variant: " +
+                      (this->getCodeVariant().has_value()
+                           ? codeVariantToString(this->getCodeVariant().value())
+                           : "NONE"));
+    print_information(
+        "ID from message being acknowledged: " +
+        (this->getIdFromMessageBeingAcknowledged().has_value()
+             ? uuids::to_string(
+                   this->getIdFromMessageBeingAcknowledged().value())
+             : "NONE"));
+    print_information("=== BEGIN ===");
     std::istringstream content_stream(this->getContent());
     std::string line;
     while (std::getline(content_stream, line)) {
-        print_message(line);
+        print_information(line);
     }
-    print_message("==== END ====");
+    print_information("==== END ====");
 }

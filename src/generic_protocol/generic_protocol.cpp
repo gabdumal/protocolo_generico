@@ -18,7 +18,7 @@ void GenericProtocol::run(
     cout << output_stream.str();
     output_stream.str("");
 
-    Protocol protocol(uuid_generator);
+    Protocol protocol(uuid_generator, "Zircônia");
 
     output_stream << "Creating entities" << endl;
     uuids::uuid entity_a = protocol.createEntity("Aroeira", output_stream);
@@ -28,8 +28,17 @@ void GenericProtocol::run(
     output_stream.str("");
 
     protocol.printEntitiesStorage(output_stream);
-
     output_stream << endl;
+    cout << output_stream.str();
+    output_stream.str("");
+
+    deque<string> data_fragments = {
+        "Fragment 1", "Fragment 2", "Fragment 3", "Fragment 4", "Fragment 5",
+    };
+
+    output_stream << "Sending messages" << endl;
+    protocol.sendData(entity_a, entity_b, data_fragments, output_stream);
+
     cout << output_stream.str();
     output_stream.str("");
 }
