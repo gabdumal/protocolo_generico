@@ -13,9 +13,9 @@ namespace GenericProtocolConstants {
     constexpr int network_latency = 10;
 
     constexpr unsigned int connection_buffer_size = 10;
-    constexpr int max_attempts_to_send_message = 100;
+    constexpr int max_attempts_to_send_package = 100;
     static constexpr auto resend_timeout = chrono::seconds(1);
-    constexpr int interval_to_check_unconfirmed_messages = 100;
+    constexpr int interval_to_check_unconfirmed_packages = 100;
 }  // namespace GenericProtocolConstants
 
 #endif  // _GENERIC_PROTOCOL_CONSTANTS_HPP

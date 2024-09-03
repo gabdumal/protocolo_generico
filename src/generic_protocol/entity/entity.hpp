@@ -6,14 +6,13 @@
 #include <functional>
 #include <list>
 #include <memory>
-#include <message.hpp>
 #include <pretty_console.hpp>
 
 #include "package.hpp"
 
 using namespace std;
 
-enum class ConnectionStep { NONE, SYN, ACK_SYN, ACK_ACK_SYN };
+enum class ConnectionStep { SYN, ACK_SYN, ACK_ACK_SYN };
 
 using InternalConnectFunctionParameters =
     tuple<uuids::uuid, uuids::uuid, ConnectionStep>;
@@ -47,20 +46,6 @@ using CanStoreDataFunction = shared_ptr<function<bool(
     CanStoreDataFunctionParameters can_store_data_function_parameters)>>;
 
 class Entity {
-   public:
-    struct Response {
-        optional<Message> message;
-        bool should_be_confirmed;
-        optional<uuids::uuid> id_from_message_possibly_acknowledged;
-
-        Response(optional<Message> message, bool should_be_confirmed,
-                 optional<uuids::uuid> id_from_message_possibly_acknowledged)
-            : message(message),
-              should_be_confirmed(should_be_confirmed),
-              id_from_message_possibly_acknowledged(
-                  id_from_message_possibly_acknowledged) {}
-    };
-
    private:
     uuids::uuid id;
     string name;
@@ -78,26 +63,26 @@ class Entity {
         string information, ostream &output_stream,
         PrettyConsole::Color color = PrettyConsole::Color::DEFAULT) const;
 
-    Response receiveSynMessage(
-        const Message &message,
+    optional<Package> receiveSynPackage(
+        const Package &package,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    Response receiveFinMessage(
-        const Message &message,
+    optional<Package> receiveFinPackage(
+        const Package &package,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    Response receiveAckMessage(
-        const Message &message,
+    optional<Package> receiveAckPackage(
+        const Package &package,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    Response receiveAckSynMessage(
-        const Message &message, uuids::uuid sent_message_id,
+    optional<Package> receiveAckSynPackage(
+        const Package &package, uuids::uuid sent_message_id,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    Response receiveAckAckSynMessage(
-        const Message &message, uuids::uuid sent_message_id,
+    optional<Package> receiveAckAckSynPackage(
+        const Package &package, uuids::uuid sent_message_id,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    Response receiveNackMessage(
-        const Message &message,
+    optional<Package> receiveNackPackage(
+        const Package &package,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
-    Response receiveDataMessage(
-        const Message &message,
+    optional<Package> receiveDataPackage(
+        const Package &package,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
 
    public:
@@ -129,7 +114,7 @@ class Entity {
     bool canSendMessage(uuids::uuid message_id) const;
 
     bool sendMessage(Message message, bool should_be_confirmed);
-    Response receivePackage(
+    optional<Package> receivePackage(
         Package package,
         shared_ptr<uuids::uuid_random_generator> uuid_generator);
 

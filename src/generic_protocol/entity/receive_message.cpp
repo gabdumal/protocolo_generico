@@ -1,188 +1,201 @@
 #include <iostream>
+#include <optional>
 
 #include "entity.hpp"
+#include "message.hpp"
 #include "package.hpp"
 
 using namespace std;
 
-Entity::Entity::Response Entity::receivePackage(
+optional<Package> Entity::receivePackage(
     Package package, shared_ptr<uuids::uuid_random_generator> uuid_generator) {
     auto message = package.getMessage();
 
     this->printPackageInformation(package, cout, false);
 
     Message error_message(uuid_generator, this->id, message.getSourceEntityId(),
-                          "NACK\n" + to_string(message.getId()),
-                          Message::Code::NACK);
+                          Message::Code::NACK, nullopt, nullopt);
+    Package error_package(error_message, false);
 
-    if (package.isCorrupted()) return Response(error_message, false, nullopt);
+    if (package.isCorrupted()) return error_package;
 
     switch (message.getCode()) {
         case Message::Code::SYN:
-            return this->receiveSynMessage(message, uuid_generator);
+            return this->receiveSynPackage(package, uuid_generator);
         case Message::Code::FIN:
-            return this->receiveFinMessage(message, uuid_generator);
+            return this->receiveFinPackage(package, uuid_generator);
         case Message::Code::ACK:
-            return this->receiveAckMessage(message, uuid_generator);
+            return this->receiveAckPackage(package, uuid_generator);
         case Message::Code::NACK:
-            return this->receiveNackMessage(message, uuid_generator);
+            return this->receiveNackPackage(package, uuid_generator);
         case Message::Code::DATA:
-            return this->receiveDataMessage(message, uuid_generator);
+            return this->receiveDataPackage(package, uuid_generator);
     }
 
-    return Response(error_message, false, message.getId());
+    // Received package successfully, but it cannot be processed
+    error_package.setIdFromMessageBeingAcknowledged(message.getId());
+    return error_package;
 }
 
-Entity::Response Entity::receiveSynMessage(
-    const Message &message,
+optional<Package> Entity::receiveSynPackage(
+    const Package &package,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    Message error_message(uuid_generator, this->id, message.getSourceEntityId(),
-                          "NACK-SYN\n" + to_string(message.getId()),
-                          Message::Code::NACK);
-    Response error_response(error_message, false, message.getId());
+    auto message = package.getMessage();
 
     if (!this->isConnectedAtStep(
             // If there is no connection, create a new one
             {message.getSourceEntityId(), ConnectionStep::SYN})) {
-        Message ack_syn_message(
-            uuid_generator, this->id, message.getSourceEntityId(),
-            "ACK-SYN\n" + to_string(message.getId()), Message::Code::ACK);
+        Message ack_syn_message(uuid_generator, this->id,
+                                message.getSourceEntityId(), Message::Code::ACK,
+                                Message::CodeVariant::ACK_SYN, message.getId());
 
         // Still need to receive the ACK-ACK-SYN message
         this->connect({message.getSourceEntityId(), message.getId(),
                        ConnectionStep::SYN});
 
-        return Entity::Response(ack_syn_message, true, message.getId());
-
-    } else {
-        // If received a SYN message, but the connection is already established
-        if (this->isConnectedAtStep(
-                {message.getSourceEntityId(), ConnectionStep::SYN}))
-            return Entity::Response{nullopt, false, message.getId()};
+        return Package(ack_syn_message, true);
     }
+    // else {
+    //     // If received a SYN message, but the connection is already
+    //     established if (this->isConnectedAtStep(
+    //             {message.getSourceEntityId(), ConnectionStep::SYN}))
+    //         return error_response;
+    // }
 
-    return error_response;
+    Message error_message(uuid_generator, this->id, message.getSourceEntityId(),
+                          Message::Code::NACK, Message::CodeVariant::NACK_SYN,
+                          message.getId());
+    Package error_package(error_message, false);
+    return error_package;
 }
 
 // TODO: Implement 3-way handshake
-Entity::Response Entity::receiveFinMessage(
-    const Message &message,
+optional<Package> Entity::receiveFinPackage(
+    const Package &package,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
+    auto message = package.getMessage();
     Message error_message(uuid_generator, this->id, message.getSourceEntityId(),
-                          "NACK\n" + to_string(message.getId()),
-                          Message::Code::NACK);
-    Response error_response(error_message, false, message.getId());
+                          Message::Code::NACK, Message::CodeVariant::NACK_FIN,
+                          message.getId());
+    Package error_package(error_message, false);
+
+    bool is_connected = this->isConnectedAtStep(
+        {message.getSourceEntityId(), ConnectionStep::SYN});
+
+    if (!is_connected) return error_package;
 
     this->removeConnection({
         message.getSourceEntityId(),
     });
-    return error_response;
+
+    return Package(Message(uuid_generator, this->id,
+                           message.getSourceEntityId(), Message::Code::ACK,
+                           Message::CodeVariant::ACK_FIN, message.getId()),
+                   true);
 }
 
-Entity::Response Entity::receiveAckMessage(
-    const Message &message,
+optional<Package> Entity::receiveAckPackage(
+    const Package &package,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    auto ack_type_container = message.getAckType();
-    auto uuid_container = message.getIdFromMessageBeingAcknowledged();
+    auto message = package.getMessage();
 
     Message error_message(uuid_generator, this->id, message.getSourceEntityId(),
-                          "NACK\n" + to_string(message.getId()),
-                          Message::Code::NACK);
-    Response error_response(error_message, false, message.getId());
+                          Message::Code::NACK, nullopt, message.getId());
 
-    if (!ack_type_container.has_value()) return error_response;
+    auto variant = message.getCodeVariant();
 
-    Message::AckType ack_type = ack_type_container.value();
+    auto previously_sent_message_id =
+        message.getIdFromMessageBeingAcknowledged();
 
-    if (uuid_container.has_value()) {
-        uuids::uuid sent_message_id = uuid_container.value();
+    if (variant.has_value()) {
+        if (previously_sent_message_id.has_value()) {
+            if (variant.value() == Message::CodeVariant::ACK_SYN)
+                return this->receiveAckSynPackage(
+                    package, previously_sent_message_id.value(),
+                    uuid_generator);
 
-        if (ack_type == Message::AckType::ACK_SYN)
-            return this->receiveAckSynMessage(message, sent_message_id,
-                                              uuid_generator);
+            else if (variant.value() == Message::CodeVariant::ACK_ACK_SYN)
+                return this->receiveAckAckSynPackage(
+                    package, previously_sent_message_id.value(),
+                    uuid_generator);
 
-        else if (ack_type == Message::AckType::ACK_ACK_SYN)
-            return this->receiveAckAckSynMessage(message, sent_message_id,
-                                                 uuid_generator);
+        } else {  // Wrongfully received an ACK message
+            if (variant.value() == Message::CodeVariant::ACK_SYN)
+                error_message.setCodeVariant(
+                    Message::CodeVariant::NACK_ACK_SYN);
 
-        else
-            return Response(nullopt, false, message.getId());
-
-    } else {
-        if (ack_type == Message::AckType::ACK_SYN)
-            error_response.message =
-                Message(uuid_generator, this->id, message.getSourceEntityId(),
-                        "NACK-ACK-SYN\n" + to_string(message.getId()),
-                        Message::Code::NACK);
-
-        else if (ack_type == Message::AckType::ACK_ACK_SYN)
-            error_response.message =
-                Message(uuid_generator, this->id, message.getSourceEntityId(),
-                        "NACK-ACK-ACK-SYN\n" + to_string(message.getId()),
-                        Message::Code::NACK);
+            else if (variant.value() == Message::CodeVariant::ACK_ACK_SYN)
+                error_message.setCodeVariant(
+                    Message::CodeVariant::NACK_ACK_ACK_SYN);
+        }
     }
 
-    return error_response;
+    return Package(error_message, false);
 }
 
-Entity::Response Entity::receiveAckSynMessage(
-    const Message &message, uuids::uuid sent_message_id,
+optional<Package> Entity::receiveAckSynPackage(
+    const Package &package, uuids::uuid sent_message_id,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
+    auto message = package.getMessage();
     Message ack_ack_syn_message(
         uuid_generator, this->id, message.getSourceEntityId(),
-        "ACK-ACK-SYN\n" + to_string(message.getId()), Message::Code::ACK);
+        Message::Code::ACK, Message::CodeVariant::ACK_ACK_SYN, message.getId());
 
     this->connect({message.getSourceEntityId(), message.getId(),
                    ConnectionStep::ACK_SYN});
 
-    return Response(ack_ack_syn_message, true, message.getId());
+    return Package(ack_ack_syn_message, true);
 }
 
-Entity::Response Entity::receiveAckAckSynMessage(
-    const Message &message, uuids::uuid sent_message_id,
+optional<Package> Entity::receiveAckAckSynPackage(
+    const Package &package, uuids::uuid sent_message_id,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
+    auto message = package.getMessage();
+
     if (this->isConnectedAtStep(
             {message.getSourceEntityId(), ConnectionStep::ACK_SYN})) {
         // Update connection
         this->connect({message.getSourceEntityId(), message.getId(),
                        ConnectionStep::ACK_ACK_SYN});
 
-        Message ack_message(
-            uuid_generator, this->id, message.getSourceEntityId(),
-            "ACK\n" + to_string(message.getId()), Message::Code::ACK);
-        return Response(ack_message, false, message.getId());
+        Message ack_message(uuid_generator, this->id,
+                            message.getSourceEntityId(), Message::Code::ACK,
+                            Message::CodeVariant::ACK_ACK_ACK_SYN,
+                            message.getId());
+        return Package(ack_message, false);
     }
 
     Message error_message(uuid_generator, this->id, message.getSourceEntityId(),
-                          "NACK-ACK-ACK-SYN\n" + to_string(message.getId()),
-                          Message::Code::NACK);
-    Response error_response{error_message, false, message.getId()};
-    return error_response;
+                          Message::Code::NACK,
+                          Message::CodeVariant::NACK_ACK_ACK_SYN,
+                          message.getId());
+    return Package(error_message, false);
 }
 
-Entity::Response Entity::receiveNackMessage(
-    const Message &message,
+// TODO: Split confirmation from received and from processed
+optional<Package> Entity::receiveNackPackage(
+    const Package &package,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
-    return Response({nullopt, false, message.getId()});
+    return nullopt;
 }
 
-Entity::Response Entity::receiveDataMessage(
-    const Message &message,
+optional<Package> Entity::receiveDataPackage(
+    const Package &package,
     shared_ptr<uuids::uuid_random_generator> uuid_generator) {
+    auto message = package.getMessage();
+
     Message error_message(uuid_generator, this->id, message.getSourceEntityId(),
-                          "NACK\n" + to_string(message.getId()),
-                          Message::Code::NACK);
-    Response error_response(error_message, false, message.getId());
+                          Message::Code::NACK, nullopt, message.getId());
 
     if (this->canStoreData({message.getSourceEntityId(), message.getId()})) {
-        this->storage += message.getDataContent() + "\n";
+        this->storage += message.getContent() + "\n";
 
-        Message ack_message(
-            uuid_generator, this->id, message.getSourceEntityId(),
-            "ACK\n" + to_string(message.getId()), Message::Code::ACK);
+        Message ack_message(uuid_generator, this->id,
+                            message.getSourceEntityId(), Message::Code::ACK,
+                            nullopt, message.getId());
 
-        return Response(ack_message, false, message.getId());
+        return Package(ack_message, false);
     }
 
-    return error_response;
+    return Package(error_message, false);
 }

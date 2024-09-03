@@ -1,8 +1,6 @@
 #include <message.hpp>
 #include <sstream>
 
-#include "util.hpp"
-
 using namespace std;
 
 /* Auxiliary */
@@ -27,12 +25,17 @@ string Message::codeToString(Message::Code code) {
 
 Message::Message(shared_ptr<uuids::uuid_random_generator> uuid_generator,
                  uuids::uuid source_entity_id, uuids::uuid target_entity_id,
-                 string content, Message::Code code) {
+                 Code code, optional<CodeVariant> code_variant,
+                 optional<uuids::uuid> id_from_message_being_acknowledged,
+                 string content) {
     this->id = (*uuid_generator)();
     this->source_entity_id = source_entity_id;
     this->target_entity_id = target_entity_id;
-    this->content = content;
     this->code = code;
+    this->code_variant = code_variant;
+    this->id_from_message_being_acknowledged =
+        id_from_message_being_acknowledged;
+    this->content = content;
 }
 
 Message::~Message() {}
@@ -51,7 +54,25 @@ uuids::uuid Message::getTargetEntityId() const {
 
 Message::Code Message::getCode() const { return this->code; }
 
+optional<Message::CodeVariant> Message::getCodeVariant() const {
+    return this->code_variant;
+}
+
+optional<uuids::uuid> Message::getIdFromMessageBeingAcknowledged() const {
+    return this->id_from_message_being_acknowledged;
+}
+
 string Message::getContent() const { return this->content; }
+
+/* Setters */
+
+void Message::setCodeVariant(Message::CodeVariant code_variant) {
+    this->code_variant = code_variant;
+}
+
+void Message::setIdFromMessageBeingAcknowledged(uuids::uuid id_from_message) {
+    this->id_from_message_being_acknowledged = id_from_message;
+}
 
 /* Methods */
 
@@ -69,33 +90,4 @@ void Message::print(std::function<void(std::string)> print_message) const {
         print_message(line);
     }
     print_message("==== END ====");
-}
-
-optional<uuids::uuid> Message::getIdFromMessageBeingAcknowledged() const {
-    if (this->code == Message::Code::ACK) {
-        string content = Util::getLineContent(2, this->content);
-        return uuids::uuid::from_string(content);
-    }
-    return nullopt;
-}
-
-optional<Message::AckType> Message::getAckType() const {
-    if (this->code == Message::Code::ACK) {
-        string first_line = Util::getLineContent(1, this->content);
-        if (first_line == "ACK-SYN") {
-            return Message::AckType::ACK_SYN;
-        } else if (first_line == "ACK-ACK-SYN") {
-            return Message::AckType::ACK_ACK_SYN;
-        } else {
-            return Message::AckType::ACK;
-        }
-    }
-    return nullopt;
-}
-
-string Message::getDataContent() const {
-    if (this->code == Message::Code::DATA) {
-        return Util::getTextBetween(this->content, "\n", nullopt);
-    }
-    return "";
 }

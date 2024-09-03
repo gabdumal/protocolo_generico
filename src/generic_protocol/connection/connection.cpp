@@ -10,8 +10,6 @@ using namespace std;
 
 bool Connection::isConnectedAtStep(ConnectionStep step) {
     switch (step) {
-        case ConnectionStep::NONE:
-            return true;
         case ConnectionStep::SYN:
             return this->syn_message_id.has_value();
         case ConnectionStep::ACK_SYN:
@@ -104,7 +102,6 @@ void Connection::removeConnection(
     if (connections_obj.find(key) != connections_obj.end()) {
         auto connection = connections_obj[key];
         connection->removeConnection();
-        connections_obj.erase(key);
     }
 }
 
