@@ -70,7 +70,12 @@ void Connection::enqueuePackage(uuids::uuid message_id) {
     this->unconfirmed_sent_packages->push(message_id);
 }
 
-void Connection::dequeuePackage() { this->unconfirmed_sent_packages->pop(); }
+void Connection::dequeuePackage(uuids::uuid message_id) {
+    if (this->unconfirmed_sent_packages == nullptr) return;
+    if (this->unconfirmed_sent_packages->empty()) return;
+    if (this->unconfirmed_sent_packages->front() != message_id) return;
+    this->unconfirmed_sent_packages->pop();
+}
 
 void Connection::lockQueue() { this->queue_mutex.lock(); }
 
@@ -201,16 +206,17 @@ void Connection::dequeuePackage(
     DequeuePackageFunctionParameters dequeue_package_function_parameters) {
     if (connections == nullptr) return;
 
-    tuple<uuids::uuid, uuids::uuid> parameters =
+    tuple<uuids::uuid, uuids::uuid, uuids::uuid> parameters =
         dequeue_package_function_parameters;
     uuids::uuid source_entity_id = get<0>(parameters);
     uuids::uuid target_entity_id = get<1>(parameters);
+    uuids::uuid message_id = get<2>(parameters);
 
     auto &connections_obj = *connections;
     pair<uuids::uuid, uuids::uuid> key = {source_entity_id, target_entity_id};
 
     if (connections_obj.find(key) != connections_obj.end()) {
         auto connection = connections_obj[key];
-        connection->dequeuePackage();
+        connection->dequeuePackage(message_id);
     }
 }

@@ -54,7 +54,7 @@ class Connection {
     void connect(uuids::uuid message_id, ConnectionStep step);
     void removeConnection();
     void enqueuePackage(uuids::uuid message_id);
-    void dequeuePackage();
+    void dequeuePackage(uuids::uuid message_id);
     void lockQueue();
     void unlockQueue();
 

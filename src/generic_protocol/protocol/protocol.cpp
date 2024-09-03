@@ -108,9 +108,11 @@ uuids::uuid Protocol::createEntity(string name, ostringstream &output_stream) {
         });
 
     auto dequeue_package_lambda = [this](uuids::uuid source_entity_id,
-                                         uuids::uuid target_entity_id) {
-        Connection::dequeuePackage(this->connections,
-                                   {source_entity_id, target_entity_id});
+                                         uuids::uuid target_entity_id,
+                                         uuids::uuid message_id) {
+        Connection::dequeuePackage(
+            this->connections,
+            {source_entity_id, target_entity_id, message_id});
     };
     DequeuePackageFunction dequeue_package_function = make_shared<function<void(
         DequeuePackageFunctionParameters dequeue_package_function_parameters)>>(

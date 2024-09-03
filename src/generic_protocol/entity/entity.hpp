@@ -49,8 +49,10 @@ using EnqueuePackageFunctionParameters = tuple<uuids::uuid, uuids::uuid>;
 using EnqueuePackageFunction = shared_ptr<function<void(
     EnqueuePackageFunctionParameters enqueue_package_function_parameters)>>;
 
-using InternalDequeuePackageFunctionParameters = tuple<uuids::uuid>;
-using DequeuePackageFunctionParameters = tuple<uuids::uuid, uuids::uuid>;
+using InternalDequeuePackageFunctionParameters =
+    tuple<uuids::uuid, uuids::uuid>;
+using DequeuePackageFunctionParameters =
+    tuple<uuids::uuid, uuids::uuid, uuids::uuid>;
 using DequeuePackageFunction = shared_ptr<function<void(
     DequeuePackageFunctionParameters dequeue_package_function_parameters)>>;
 

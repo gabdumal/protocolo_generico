@@ -67,7 +67,8 @@ bool Entity::canStoreData(InternalCanStoreDataFunctionParameters
 void Entity::dequeuePackage(InternalDequeuePackageFunctionParameters
                                 dequeue_package_function_parameters) {
     DequeuePackageFunctionParameters parameters = {
-        this->id, get<0>(dequeue_package_function_parameters)};
+        this->id, get<0>(dequeue_package_function_parameters),
+        get<1>(dequeue_package_function_parameters)};
     this->dequeue_package_function->operator()(parameters);
 }
 

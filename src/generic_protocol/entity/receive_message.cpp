@@ -191,7 +191,7 @@ optional<Package> Entity::receiveDataPackage(
                           Message::Code::NACK, nullopt, nullopt);
 
     if (this->canStoreData({message.getSourceEntityId(), message.getId()})) {
-        this->dequeuePackage({message.getSourceEntityId()});
+        this->dequeuePackage({message.getSourceEntityId(), message.getId()});
 
         this->storage += message.getContent() + "\n";
 
